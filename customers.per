@@ -1,0 +1,30 @@
+DATABASE stores
+
+LAYOUT (TEXT = "Customers")
+TABLE(HEIGHT=15 LINES)
+{
+ Number       First Name    Last Name  Company    Address1  Address2   City  State  Zip Code  Phone
+[f000        |f001        |f002       |f003     | f004     |f005     | f006 | a0   | f007    | f008 ]
+}
+END END
+
+TABLES
+customer
+
+ATTRIBUTES
+
+
+f000 = customer.customer_num, NOENTRY;
+f001 = customer.fname;
+f002 = customer.lname;
+f003 = customer.company;
+f004 = customer.address1;
+f005 = customer.address2;
+f006 = customer.city;
+BUTTONEDIT a0 = customer.state, UPSHIFT, NOTEDITABLE, ACTION=zoom;
+f007 = customer.zipcode;
+EDIT f008 = customer.phone;--, PICTURE = "###-###-#### XXXXX";
+
+
+INSTRUCTIONS
+SCREEN RECORD scr(customer.customer_num THRU customer.phone)

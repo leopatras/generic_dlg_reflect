@@ -1,0 +1,59 @@
+DATABASE stores
+TOOLBAR
+  ITEM firstrow
+  ITEM prevrow
+  ITEM nextrow
+  ITEM lastrow
+END
+
+LAYOUT (TEXT = "Customers")
+GRID
+{
+<G                                 >
+[Number      ][f000                ]
+[First_Name  ][f001                ]
+[Last_Name   ][f002                ]
+[Company     ][f003                ]
+
+<G "Address"                       >
+[Address1    ][f004                ]
+[Address2    ][f005                ]
+[City        ][f006                ]
+[State       ][a0                  ]
+[Zipcode     ][f007                ]
+[Telephone   ][f008                ]
+
+
+}
+END END
+
+TABLES
+customer
+
+ATTRIBUTES
+
+
+f000 = customer.customer_num, NOENTRY;
+f001 = customer.fname;
+f002 = customer.lname;
+f003 = customer.company;
+f004 = customer.address1;
+f005 = customer.address2;
+f006 = customer.city;
+BUTTONEDIT a0 = customer.state, UPSHIFT, NOTEDITABLE, ACTION=zoom;
+f007 = customer.zipcode;
+EDIT f008 = customer.phone;--, PICTURE = "###-###-#### XXXXX";
+
+LABEL Number : TEXT = %"Number";
+LABEL First_Name : TEXT = %"First Name";
+LABEL Last_Name : TEXT = %"Last Name";
+LABEL Company : TEXT = %"Company";
+LABEL Address1 : TEXT = %"Address1";
+LABEL Address2 : TEXT = %"Address2";
+LABEL City : TEXT = %"City";
+LABEL State : TEXT = %"State";
+LABEL Zipcode : TEXT = %"Zipcode";
+LABEL Telephone : TEXT = %"Telephone";
+
+INSTRUCTIONS
+SCREEN RECORD scr(customer.customer_num THRU customer.phone)
