@@ -11,8 +11,8 @@ DEFINE a T_customers
 MAIN
   DEFINE customers sql2array.T_customers
   CALL utils.dbconnect()
-  --CALL sql2array.readIntoArray(
-  --  reflect.Value.valueOf(a), "select * from customer")
+  CALL sql2array.readIntoArray(
+    reflect.Value.valueOf(a), "select * from customer")
   CALL sDAdyn.browseArray(
     reflect.Value.valueOf(a), "scr", "customers_singlerow" {customers},FUNCTION initDA)
   --CALL da()

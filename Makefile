@@ -12,7 +12,7 @@ all: $(FORMS) $(MODULES)
 
 $(FORMS) $(MODULES): stores.sch
 
-run: stores.dbs $(MODULES)
+run: stores.dbs $(MODULES) $(FORMS)
 	fglrun customers
 
 sql2array: stores.dbs sql2array.42m 
