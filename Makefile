@@ -15,6 +15,9 @@ $(FORMS) $(MODULES): stores.sch
 run: stores.dbs $(MODULES) $(FORMS)
 	fglrun customers
 
+test: stores.dbs $(MODULES)
+	fglrun test
+
 sql2array: stores.dbs sql2array.42m 
 	fglrun sql2array
 

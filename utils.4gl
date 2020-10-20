@@ -3,11 +3,23 @@ IMPORT reflect
 PUBLIC CONSTANT C_AFTER_FIELD = "AFTER FIELD"
 PUBLIC CONSTANT C_BEFORE_FIELD = "BEFORE FIELD"
 PUBLIC CONSTANT C_ON_ACTION = "ON ACTION"
+DEFINE mShowStack BOOLEAN
+
+FUNCTION myerrAndStackTrace(errstr STRING)
+  LET mShowStack = TRUE
+  CALL myerr(errstr)
+END FUNCTION
+
 FUNCTION myerr(errstr STRING)
   DEFINE ch base.Channel
   LET ch = base.Channel.create()
   CALL ch.openFile("<stderr>", "w")
-  CALL ch.writeLine(SFMT("ERROR:%1", errstr))
+  IF mShowStack THEN
+    CALL ch.writeLine(
+      SFMT("ERROR:%1,stack:\n%2", errstr, base.Application.getStackTrace()))
+  ELSE
+    CALL ch.writeLine(SFMT("ERROR:%1", errstr))
+  END IF
   CALL ch.close()
   EXIT PROGRAM 1
 END FUNCTION
@@ -30,12 +42,19 @@ FUNCTION copyRecord(src reflect.Value, dest reflect.Value)
   DEFINE tsrc, tdst reflect.Type
   DEFINE fsrc, fdst reflect.Value
   DEFINE cnt, idx INT
+  DEFINE directAssignable BOOLEAN
   --DISPLAY "toString:", tarr.toString(), ",kind:", tarr.getKind()
   --DISPLAY src.toString()
   LET tsrc = src.getType()
   LET tdst = dest.getType()
   MYASSERT(tsrc.getKind() == "RECORD")
   MYASSERT(tdst.getKind() == "RECORD")
+  IF tdst.isAssignableFrom(tsrc) THEN
+    --both src and dest have the *same* RECORD type:
+    --you should rather use a direct RECORD assignment
+    CALL myerrAndStackTrace(
+      "RECORD types match: use a direct RECORD assignment instead(performance)")
+  END IF
   --number of elements must be equal
   MYASSERT(tsrc.getFieldCount() == tdst.getFieldCount())
   LET cnt = tsrc.getFieldCount()
@@ -64,6 +83,12 @@ FUNCTION copyRecordByName(src reflect.Value, dest reflect.Value)
   LET tdst = dest.getType()
   MYASSERT(tsrc.getKind() == "RECORD")
   MYASSERT(tdst.getKind() == "RECORD")
+  IF tdst.isAssignableFrom(tsrc) THEN
+    --both src and dest have the *same* RECORD type:
+    --you should rather use a direct RECORD assignment
+    CALL myerrAndStackTrace(
+      "RECORD types match: use a direct RECORD assignment instead(performance)")
+  END IF
   --first iterate thru the source record
   LET cnt = tsrc.getFieldCount()
   FOR idx = 1 TO cnt
@@ -90,8 +115,9 @@ END FUNCTION
 --please clear the destination array for efficiency before calling this func
 FUNCTION copyArrayOfRecord(src reflect.Value, dest reflect.Value)
   DEFINE tsrc, tdst, trecsrc, trecdst reflect.Type
-  DEFINE fsrc, fdst reflect.Value
-  DEFINE cnt, idx, len INT
+  DEFINE elsrc, eldst, fieldsrc, fielddst reflect.Value
+  DEFINE numFields, idx, j, len INT
+  DEFINE directAssignable BOOLEAN
   LET tsrc = src.getType()
   LET tdst = dest.getType()
   --DISPLAY src.toString() --not working, JSON would be cool
@@ -102,15 +128,44 @@ FUNCTION copyArrayOfRecord(src reflect.Value, dest reflect.Value)
   LET trecdst = tdst.getElementType()
   MYASSERT(trecsrc.getKind() == "RECORD")
   MYASSERT(trecdst.getKind() == "RECORD")
+  IF trecdst.toString() == trecsrc.toString() THEN
+    CALL myerrAndStackTrace(
+      SFMT("RECORD types are equal (%1): use the build in copyTo() method of ARRAY instead of this function (performance)",
+        trecdst.toString()))
+  END IF
+  MYASSERT(trecsrc.getFieldCount() == trecdst.getFieldCount())
+  LET numFields = trecsrc.getFieldCount()
+  IF NOT trecdst.isAssignableFrom(trecsrc) THEN
+    --come in here for ex if we have RECORDs with different methods
+    --check field count, name matching and matching types
+    FOR idx = 1 TO numFields
+      --name at position must be equal
+      MYASSERT(trecsrc.getFieldName(idx) == trecdst.getFieldName(idx))
+      MYASSERT(trecdst.getFieldType(idx).isAssignableFrom(trecsrc.getFieldType(idx)))
+    END FOR
+  END IF
+  --TODO: have a clearArray() method
   WHILE (len := dest.getLength()) > 0
     CALL dest.deleteArrayElement(len)
   END WHILE
   LET len = src.getLength()
   FOR idx = 1 TO len
     CALL dest.appendArrayElement()
-    LET fsrc = src.getArrayElement(idx)
-    LET fdst = dest.getArrayElement(idx)
-    CALL copyRecord(fsrc, fdst)
+    LET elsrc = src.getArrayElement(idx)
+    LET eldst = dest.getArrayElement(idx)
+    MYASSERT(dest.getLength()==idx AND eldst IS NOT NULL AND NOT eldst.isNull())
+    IF FALSE AND directAssignable THEN
+      DISPLAY "here"
+      MYASSERT(eldst.getType().isAssignableFrom(elsrc.getType()))
+      CALL eldst.set(eldst)
+    ELSE
+      FOR j = 1 TO numFields
+        LET fieldsrc = elsrc.getField(j)
+        LET fielddst = eldst.getField(j)
+        MYASSERT(fielddst.getType().isAssignableFrom(fieldsrc.getType()))
+        CALL fielddst.set(fieldsrc)
+      END FOR
+    END IF
   END FOR
 END FUNCTION
 
@@ -134,6 +189,16 @@ FUNCTION copyArrayOfRecordByName(src reflect.Value, dest reflect.Value)
   LET trecdst = tdst.getElementType()
   MYASSERT(trecsrc.getKind() == "RECORD")
   MYASSERT(trecdst.getKind() == "RECORD")
+  IF trecdst.toString() == trecsrc.toString() THEN
+    CALL myerrAndStackTrace(
+      SFMT("RECORD types are equal (%1): use the build in copyTo() method of ARRAY instead of this function (performance)",
+        trecdst.toString()))
+  END IF
+  IF trecdst.isAssignableFrom(trecsrc) THEN
+    CALL myerrAndStackTrace(
+      "RECORD types match: use the copyArrayOfRecord() function instead of this function (performance)")
+    RETURN
+  END IF
   LET cnt = trecsrc.getFieldCount()
   FOR idx = 1 TO cnt
     LET name2Index[trecsrc.getFieldName(idx)] = idx
@@ -152,7 +217,8 @@ FUNCTION copyArrayOfRecordByName(src reflect.Value, dest reflect.Value)
       END IF
     END IF
   END FOR
-  --for huge existing destination arrays  this migh be slow
+  --for huge existing destination arrays  this might be slow
+  --TODO: have a clearArray() method
   WHILE (len := dest.getLength()) > 0
     CALL dest.deleteArrayElement(len)
   END WHILE
