@@ -54,6 +54,7 @@ MAIN
   LET t1arr[2].lname="Hansen"
 
   --CALL t1arr.copyTo(t2arr) --this fails with "illegal argument"
+                             --which isn't logical to me because a single RECORD                             --assignment is accepted by the compiler
   CALL utils.copyArrayOfRecord(reflect.Value.valueOf(t1arr),reflect.Value.valueOf(t2arr))
   --using this will fail and advise you to use copyArrayOfRecord()
   --CALL utils.copyArrayOfRecordByName(reflect.Value.valueOf(t1arr),reflect.Value.valueOf(t2arr))
