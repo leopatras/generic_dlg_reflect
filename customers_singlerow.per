@@ -4,24 +4,30 @@ TOOLBAR
   ITEM prevrow
   ITEM nextrow
   ITEM lastrow
+  SEPARATOR
+  ITEM append(IMAGE="fa-plus")
+  ITEM update(IMAGE="fa-edit")
+  ITEM delete(IMAGE="fa-trash-o")
+  SEPARATOR
+  ITEM filter(IMAGE="fa-filter",TEXT="Filter")
 END
 
 LAYOUT (TEXT = "Customers")
 GRID
 {
-<G                                 >
-[Number      ][f000                ]
-[First_Name  ][f001                ]
-[Last_Name   ][f002                ]
-[Company     ][f003                ]
+<G                                              >
+[Number      ][f000                             ]
+[First_Name  ][f001                             ]
+[Last_Name   ][f002                             ]
+[Company     ][f003                             ]
 
-<G "Address"                       >
-[Address1    ][f004                ]
-[Address2    ][f005                ]
-[City        ][f006                ]
-[State       ][a0                  ]
-[Zipcode     ][f007                ]
-[Telephone   ][f008                ]
+<G "Address"                                    >
+[Address1    ][f004                             ]
+[Address2    ][f005                             ]
+[City        ][f006                             ]
+[State       ][a0                               ]
+[Zipcode     ][f007                             ]
+[Telephone   ][f008                             ]
 
 
 }

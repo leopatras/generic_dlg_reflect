@@ -3,6 +3,8 @@ IMPORT reflect
 PUBLIC CONSTANT C_AFTER_FIELD = "AFTER FIELD"
 PUBLIC CONSTANT C_BEFORE_FIELD = "BEFORE FIELD"
 PUBLIC CONSTANT C_ON_ACTION = "ON ACTION"
+PUBLIC CONSTANT C_BEFORE_ROW = "BEFORE ROW"
+PUBLIC CONSTANT C_AFTER_ROW = "AFTER ROW"
 DEFINE mShowStack BOOLEAN
 
 FUNCTION myerrAndStackTrace(errstr STRING)
@@ -33,6 +35,17 @@ FUNCTION dbconnect()
       SFMT("%1+driver='%2'", dbName, driver),
       dbName)
   DATABASE db
+END FUNCTION
+
+--TODO: have a clearArray() reflection method
+FUNCTION clearReflectArray(arrVal reflect.Value)
+  DEFINE i, len INT
+  MYASSERT(arrVal.getType().getKind() == "ARRAY")
+  LET len = arrVal.getLength()
+  FOR i = len TO 1 STEP -1
+    CALL arrVal.deleteArrayElement(i)
+  END FOR
+  MYASSERT(arrVal.getLength() == 0)
 END FUNCTION
 
 --copies a record using reflection, the RECORD member count must be equal,
@@ -144,16 +157,13 @@ FUNCTION copyArrayOfRecord(src reflect.Value, dest reflect.Value)
       MYASSERT(trecdst.getFieldType(idx).isAssignableFrom(trecsrc.getFieldType(idx)))
     END FOR
   END IF
-  --TODO: have a clearArray() method
-  WHILE (len := dest.getLength()) > 0
-    CALL dest.deleteArrayElement(len)
-  END WHILE
+  CALL clearReflectArray(dest)
   LET len = src.getLength()
   FOR idx = 1 TO len
     CALL dest.appendArrayElement()
     LET elsrc = src.getArrayElement(idx)
     LET eldst = dest.getArrayElement(idx)
-    MYASSERT(dest.getLength()==idx AND eldst IS NOT NULL AND NOT eldst.isNull())
+    MYASSERT(dest.getLength() == idx AND eldst IS NOT NULL AND NOT eldst.isNull())
     IF FALSE AND directAssignable THEN
       DISPLAY "here"
       MYASSERT(eldst.getType().isAssignableFrom(elsrc.getType()))
@@ -219,9 +229,7 @@ FUNCTION copyArrayOfRecordByName(src reflect.Value, dest reflect.Value)
   END FOR
   --for huge existing destination arrays  this might be slow
   --TODO: have a clearArray() method
-  WHILE (len := dest.getLength()) > 0
-    CALL dest.deleteArrayElement(len)
-  END WHILE
+  CALL clearReflectArray(dest)
   LET len = src.getLength()
   LET len2 = idxarrsrc.getLength()
   --now walk thru the source array and assign
@@ -237,4 +245,8 @@ FUNCTION copyArrayOfRecordByName(src reflect.Value, dest reflect.Value)
       CALL fielddst.set(fieldsrc)
     END FOR
   END FOR
+END FUNCTION
+
+FUNCTION getFormTitle() RETURNS STRING
+  RETURN ui.Window.getCurrent().getForm().getNode().getAttribute("text")
 END FUNCTION

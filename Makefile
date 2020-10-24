@@ -15,6 +15,8 @@ $(FORMS) $(MODULES): stores.sch
 run: stores.dbs $(MODULES) $(FORMS)
 	fglrun customers
 
+customers.42m: sDAdyn.42m
+
 test: stores.dbs $(MODULES)
 	fglrun test
 

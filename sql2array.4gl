@@ -42,6 +42,8 @@ FUNCTION readIntoArray(arr reflect.Value, sql STRING) RETURNS()
   DEFINE name,json_name STRING
   DEFINE name2Index T_INTdict
   LET tarr = arr.getType()
+  MYASSERT(tarr.getKind()=="ARRAY")
+  CALL utils.clearReflectArray(arr)
   --DISPLAY "toString:", tarr.toString(), ",kind:", tarr.getKind()
   LET trec = tarr.getElementType()
   MYASSERT(trec.getKind() == "RECORD")
@@ -92,13 +94,4 @@ FUNCTION fillArrayWithQueryData(arr reflect.Value, name2Index T_INTdict, sql STR
     END FOR
     CALL h.fetch()
   END WHILE
-END FUNCTION
-
-FUNCTION myerr(errstr STRING)
-  DEFINE ch base.Channel
-  LET ch = base.Channel.create()
-  CALL ch.openFile("<stderr>", "w")
-  CALL ch.writeLine(SFMT("ERROR:%1", errstr))
-  CALL ch.close()
-  EXIT PROGRAM 1
 END FUNCTION
