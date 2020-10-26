@@ -8,34 +8,65 @@ PUBLIC TYPE I_SingleTableDA INTERFACE
   addOnAction(d ui.Dialog, actionName STRING)
 END INTERFACE
 
---define a set of interface methods custom RECORDs must implement
---TODO: have a way to define default INTERFACE methods or to mark them optional
-PUBLIC TYPE T_sDAdyn INTERFACE
-  --initDA(d ui.Dialog) RETURNS (),
-  initINPUT(sdi I_SingleTableDA, d ui.Dialog) RETURNS(),
-  BeforeRow(d ui.Dialog, row INT) RETURNS(),
-  AfterRow(d ui.Dialog, row INT) RETURNS(),
-  DeleteRow(d ui.Dialog, row INT) RETURNS(),
-  onDAevent(d ui.Dialog, row INT, event STRING) RETURNS(),
-  BeforeField(d ui.Dialog, fieldName STRING) RETURNS(),
-  AfterField(d ui.Dialog, fieldName STRING, oldValue STRING) RETURNS(STRING),
+--define a set of interfaces with single methods custom RECORDs can implement
+PUBLIC TYPE I_sDAdynOnDAEvent INTERFACE
+  onDAevent(d ui.Dialog, row INT, event STRING) RETURNS()
+END INTERFACE
+
+PUBLIC TYPE I_sDAdynBeforeRow INTERFACE
+  BeforeRow(d ui.Dialog, row INT) RETURNS()
+END INTERFACE
+
+PUBLIC TYPE I_sDAdynAfterRow INTERFACE
+  AfterRow(d ui.Dialog, row INT) RETURNS()
+END INTERFACE
+
+PUBLIC TYPE I_sDAdynDeleteRow INTERFACE
+  DeleteRow(d ui.Dialog, row INT) RETURNS()
+END INTERFACE
+
+PUBLIC TYPE I_sDAdynOnActionInDA INTERFACE
+  OnActionInDA(actionName STRING, row INT) RETURNS()
+END INTERFACE
+
+PUBLIC TYPE I_sDAdynInitInput INTERFACE
+  initINPUT(sdi I_SingleTableDA, d ui.Dialog) RETURNS()
+END INTERFACE
+
+PUBLIC TYPE I_sDAdynBeforeField INTERFACE
+  BeforeField(d ui.Dialog, fieldName STRING) RETURNS()
+END INTERFACE
+
+PUBLIC TYPE I_sDAdynAfterField INTERFACE
+  AfterField(d ui.Dialog, fieldName STRING, oldValue STRING) RETURNS(STRING)
+END INTERFACE
+
+PUBLIC TYPE I_sDAdynOnActionInInput INTERFACE
+  OnActionInINPUT(d ui.Dialog, name STRING) RETURNS()
+END INTERFACE
+
+PUBLIC TYPE I_sDAdynOnInputEvent INTERFACE
   onINPUTevent(
     d ui.Dialog, ev STRING, fieldName STRING, value STRING)
-    RETURNS(BOOLEAN, STRING),
-  insertOrUpdate(update BOOLEAN)
+    RETURNS(BOOLEAN, STRING)
+END INTERFACE
+
+PUBLIC TYPE I_sDAdynInsertUpdate INTERFACE
+  insertOrUpdate(update BOOLEAN) RETURNS()
 END INTERFACE
 
 PUBLIC TYPE T_initDA FUNCTION(sdi I_SingleTableDA, d ui.Dialog) RETURNS()
 
 PUBLIC TYPE T_SingleTableDA RECORD
+  delegateDA reflect.Value,
   initDA T_initDA,
   dlgDA ui.Dialog,
   browseForm STRING,
   browseRecord STRING,
   browseTitle STRING,
-  browseFormTextOrig STRING, --private
   filterForm STRING,
   filterTitle STRING,
+  hasFilter BOOLEAN,
   inputForm STRING,
   inputTitle STRING,
   filterInitially BOOLEAN,
@@ -44,7 +75,11 @@ PUBLIC TYPE T_SingleTableDA RECORD
   filter DYNAMIC ARRAY OF RECORD
     name STRING, -- a column name
     value STRING
-  END RECORD
+  END RECORD,
+  browseFormTextOrig STRING, --private
+  hasAppend BOOLEAN, --private
+  hasUpdate BOOLEAN, --private
+  hasDelete BOOLEAN --private
 END RECORD
 
 TYPE T_fields DYNAMIC ARRAY OF RECORD
@@ -52,48 +87,31 @@ TYPE T_fields DYNAMIC ARRAY OF RECORD
   type STRING -- a column type
 END RECORD
 
---technique to return a specific interface out of a reflect representation
---(array member of a DYNAMIC ARRAY OF T_sDAdyn)
-PRIVATE FUNCTION reflectVal2IF(el reflect.Value) RETURNS T_sDAdyn
-  DEFINE ifval reflect.Value
-  DEFINE ifvar T_sDAdyn
-  --we "cast" a specific interface out of reflect
-  LET ifval = reflect.Value.valueOf(ifvar)
-  MYASSERT(el IS NOT NULL)
-  MYASSERT(ifval.getType().isAssignableFrom(el.getType()))
-  CALL ifval.set(el)
-  RETURN ifvar
-END FUNCTION
-
-PRIVATE FUNCTION getRecordIFfromArray(
-  arrval reflect.Value, row INT)
-  RETURNS T_sDAdyn
-  DEFINE ifvar T_sDAdyn
-  --DISPLAY "row:",row
-  IF row == 0 THEN --append an element ,retrieve interface
-    CALL arrval.appendArrayElement()
-    LET ifvar = reflectVal2IF(arrval.getArrayElement(1))
-  ELSE
-    MYASSERT(row > 0 AND row <= arrval.getLength())
-    LET ifvar = reflectVal2IF(arrval.getArrayElement(row))
+PRIVATE FUNCTION implementsIF(
+  el reflect.Value, ifval reflect.Value)
+  RETURNS BOOLEAN
+  IF el IS NULL THEN
+    RETURN FALSE
   END IF
-  RETURN ifvar
-END FUNCTION
-
-PRIVATE FUNCTION releaseRecordIFfromArray(
-  arrval reflect.Value, row INT)
-  RETURNS()
-  IF row == 0 THEN --release the artificial element
-    DISPLAY "delete dummy element at 1"
-    CALL arrval.deleteArrayElement(1)
+  MYASSERT(ifval IS NOT NULL)
+  IF ifval.getType().isAssignableFrom(el.getType()) THEN
+    CALL ifval.set(el)
+    RETURN TRUE
   END IF
+  RETURN FALSE
 END FUNCTION
 
-FUNCTION checkUpdateDelete(d ui.Dialog, arrval reflect.Value)
+FUNCTION (self T_SingleTableDA)
+  checkUpdateDelete(
+  d ui.Dialog, arrval reflect.Value)
   DEFINE empty BOOLEAN
   LET empty = arrval.getLength() == 0
-  CALL d.setActionHidden("update", empty)
-  CALL d.setActionHidden("delete", empty)
+  IF self.hasUpdate THEN
+    CALL d.setActionHidden("update", empty)
+  END IF
+  IF self.hasDelete THEN
+    CALL d.setActionHidden("delete", empty)
+  END IF
 END FUNCTION
 
 PRIVATE FUNCTION (self T_SingleTableDA) getSQLFilterBase() RETURNS STRING
@@ -109,28 +127,57 @@ FUNCTION (self T_SingleTableDA) addOnAction(d ui.Dialog, actionName STRING)
   CALL d.addTrigger(C_ON_ACTION || " " || actionName)
 END FUNCTION
 
+FUNCTION (self T_SingleTableDA) addOnAppend(d ui.Dialog)
+  CALL d.addTrigger("ON APPEND")
+  LET self.hasAppend = TRUE
+END FUNCTION
+
+FUNCTION (self T_SingleTableDA) addOnDelete(d ui.Dialog)
+  CALL d.addTrigger("ON DELETE")
+  LET self.hasDelete = TRUE
+END FUNCTION
+
+FUNCTION (self T_SingleTableDA) addOnUpdate(d ui.Dialog)
+  CALL d.addTrigger("ON UPDATE")
+  LET self.hasDelete = TRUE
+END FUNCTION
+
+FUNCTION actionFromEvent(event STRING) RETURNS STRING
+  DEFINE actionName STRING
+  LET actionName = event.subString(LENGTH(C_ON_ACTION) + 2, event.getLength())
+  DISPLAY "actionName:'", actionName, "'"
+  RETURN actionName
+END FUNCTION
+
 FUNCTION (self T_SingleTableDA) browseArray(arrval reflect.Value)
-  DEFINE event, title, ans, sql STRING
+  DEFINE event, title, ans, sql, actionName STRING
   DEFINE d ui.Dialog
   DEFINE done, filterActive, hasWherePart BOOLEAN
   DEFINE e, ifval reflect.Value
-  DEFINE ifvar T_sDAdyn
   DEFINE trec reflect.Type
   DEFINE fields T_fields
-  DEFINE row INT
+  DEFINE row, winId INT
+  DEFINE ifvarOE I_sDAdynOnDAEvent
+  DEFINE ifvarDelRow I_sDAdynDeleteRow
+  DEFINE ifvarBR I_sDAdynBeforeRow
+  DEFINE ifvarAR I_sDAdynAfterRow
+  DEFINE ifvarOA I_sDAdynOnActionInDA
+  --DEFINE ifvalOA reflect.Value
+  --LET ifvalOA=reflect.Value.valueOf(ifvarOA)
+
   --DISPLAY arrval.getType().toString()
   LET trec = arrval.getType().getElementType()
   MYASSERT(trec.getKind() == "RECORD")
   MYASSERT(self.sqlAll IS NOT NULL)
   CALL describeFields(trec, fields)
-  OPEN WINDOW w_browse WITH FORM self.browseForm
+  LET winId = utils.openDynamicWindow(self.browseForm)
   --we need to store the original form text
   --because fgl_settitle changes the form text too
   LET self.browseFormTextOrig = utils.getFormTitle()
   IF self.browseTitle IS NULL THEN
     LET self.browseTitle = SFMT("%1: Browse", self.browseFormTextOrig)
   END IF
-  IF self.filterInitially THEN
+  IF self.hasFilter AND self.filterInitially THEN
     LET filterActive = TRUE
   ELSE
   END IF
@@ -179,16 +226,24 @@ FUNCTION (self T_SingleTableDA) browseArray(arrval reflect.Value)
     LET self.dlgDA = d
     CALL d.setArrayLength(self.browseRecord, arrval.getLength())
     CALL d.addTrigger("ON ACTION Exit")
-    CALL d.addTrigger("ON UPDATE")
-    CALL d.addTrigger("ON APPEND")
-    CALL d.addTrigger("ON DELETE")
-    CALL checkUpdateDelete(d, arrval)
+    IF self.hasUpdate THEN
+      CALL d.addTrigger("ON UPDATE")
+    END IF
+    IF self.hasAppend THEN
+      CALL d.addTrigger("ON APPEND")
+    END IF
+    IF self.hasDelete THEN
+      CALL d.addTrigger("ON DELETE")
+    END IF
+    CALL self.checkUpdateDelete(d, arrval)
     --CALL d.addTrigger("ON FILL BUFFER")
-    CALL d.addTrigger("ON ACTION filter")
-    CALL d.setActionText("filter", IIF(filterActive, "New Filter", "Filter"))
-    IF filterActive THEN
-      CALL d.addTrigger("ON ACTION clear_filter")
-      CALL d.setActionText("clear_filter", "Clear Filter")
+    IF self.hasFilter THEN
+      CALL d.addTrigger("ON ACTION filter")
+      CALL d.setActionText("filter", IIF(filterActive, "New Filter", "Filter"))
+      IF filterActive THEN
+        CALL d.addTrigger("ON ACTION clear_filter")
+        CALL d.setActionText("clear_filter", "Clear Filter")
+      END IF
     END IF
     CALL setArrayData(d, self.browseRecord, arrval)
     --call back the custom function for initial add on's of the DISPLAY ARRAY
@@ -199,26 +254,36 @@ FUNCTION (self T_SingleTableDA) browseArray(arrval reflect.Value)
     WHILE TRUE -- event loop for dialog d
       LET event = d.nextEvent()
       --DISPLAY "here:", event
-      CASE event
-        WHEN "ON ACTION Exit"
+      CASE
+        WHEN event = "ON ACTION Exit"
           LET done = TRUE
           EXIT WHILE
-        WHEN "BEFORE ROW"
+        WHEN event = "BEFORE ROW"
           LET row = d.getCurrentRow(self.browseRecord)
-          LET ifvar = getRecordIFfromArray(arrval, row)
-          CALL ifvar.BeforeRow(d, row)
-        WHEN "AFTER ROW"
+          IF row > 0 THEN
+            MYASSERT(row > 0 AND row <= arrval.getLength())
+            IF implementsIF(
+              arrval.getArrayElement(row), reflect.value.valueOf(ifvarBR)) THEN
+              CALL ifvarBR.BeforeRow(d, row)
+            ELSE
+              DISPLAY "before row interface not implemented"
+            END IF
+          END IF
+        WHEN event = "AFTER ROW"
           LET row = d.getCurrentRow(self.browseRecord)
           DISPLAY "after row:", row
           IF row > 0 THEN
-            LET ifvar = getRecordIFfromArray(arrval, row)
-            CALL ifvar.AfterRow(d, row)
+            MYASSERT(row > 0 AND row <= arrval.getLength())
+            IF implementsIF(
+              arrval.getArrayElement(row), reflect.value.valueOf(ifvarAR)) THEN
+              CALL ifvarAR.AfterRow(d, row)
+            END IF
           END IF
-        WHEN "ON UPDATE"
+        WHEN event = "ON UPDATE"
           LET row = d.getCurrentRow(self.browseRecord)
           CALL self.inputRow(d, fields, arrval.getArrayElement(row), "Update")
           CALL self.setBrowseTitle(filterActive)
-        WHEN "ON APPEND"
+        WHEN event = "ON APPEND"
           CALL arrval.appendArrayElement()
           LET row = arrval.getLength()
           LET int_flag = FALSE
@@ -226,12 +291,17 @@ FUNCTION (self T_SingleTableDA) browseArray(arrval reflect.Value)
           IF int_flag THEN
             CALL arrval.deleteArrayElement(row)
           END IF
-          CALL checkUpdateDelete(d, arrval)
+          CALL self.checkUpdateDelete(d, arrval)
           CALL self.setBrowseTitle(filterActive)
-        WHEN "ON DELETE"
-          LET ifvar = getRecordIFfromArray(arrval, row)
+        WHEN event = "ON DELETE"
+          LET row = d.getCurrentRow(self.browseRecord)
           LET int_flag = FALSE
-          CALL ifvar.DeleteRow(d, row)
+          MYASSERT(row > 0 AND row < arrval.getLength())
+          IF implementsIF(
+            arrval.getArrayElement(row),
+            reflect.value.valueOf(ifvarDelRow)) THEN
+            CALL ifvarDelRow.DeleteRow(d: d, row: row)
+          END IF
           IF NOT int_flag THEN
             IF fgldialog.fgl_winQuestion(
                 title: "Attention",
@@ -247,27 +317,50 @@ FUNCTION (self T_SingleTableDA) browseArray(arrval reflect.Value)
               LET int_flag = TRUE
             END IF
           END IF
-          CALL checkUpdateDelete(d, arrval)
-        WHEN "ON ACTION filter"
+          CALL self.checkUpdateDelete(d, arrval)
+        WHEN event = "ON ACTION filter"
           LET filterActive = TRUE
           EXIT WHILE -- restarts the dialog d
-        WHEN "ON ACTION clear_filter"
+        WHEN event = "ON ACTION clear_filter"
           LET filterActive = FALSE
           EXIT WHILE -- restarts the dialog d
-        WHEN "AFTER DISPLAY"
+        WHEN event = "AFTER DISPLAY"
           EXIT WHILE
+        WHEN event.getIndexOf(C_ON_ACTION, 1) = 1
+          DISPLAY "ON ACTION:",
+            event,
+            ",delegate NULL:",
+            self.delegateDA IS NULL
+          LET row = d.getCurrentRow(self.browseRecord)
+          IF implementsIF(self.delegateDA, reflect.Value.valueOf(ifvarOA)) THEN
+            CALL ifvarOA.OnActionInDA(actionFromEvent(event), row)
+          ELSE
+            DISPLAY "no interface for ifvarOA"
+          END IF
+          IF row > 0 AND row <= arrval.getLength() THEN
+            DISPLAY "row:", row
+            --CALL action trigger for the record element if present
+            IF implementsIF(
+              arrval.getArrayElement(row), reflect.Value.valueOf(ifvarOA)) THEN
+              CALL ifvarOA.OnActionInDA(actionFromEvent(event), row)
+            END IF
+          END IF
         OTHERWISE
           LET row = d.getCurrentRow(self.browseRecord)
-          LET ifvar = getRecordIFfromArray(arrval, row)
-          CALL ifvar.onDAevent(d, row, event)
-          --row can be 0...don't how to define rowbound in dyn da
-          CALL releaseRecordIFfromArray(arrval, row)
+          IF row > 0 AND row <= arrval.getLength() THEN
+            IF implementsIF(
+              arrval.getArrayElement(row), reflect.value.valueOf(ifvarOE)) THEN
+              CALL ifvarOE.onDAevent(d, row, event)
+            ELSE
+              DISPLAY "no DA ev IF"
+            END IF
+          END IF
       END CASE
     END WHILE
     CALL d.close()
   END WHILE
   INITIALIZE self.dlgDA TO NULL
-  CLOSE WINDOW w_browse
+  CALL utils.closeDynamicWindow(winId)
 END FUNCTION
 
 PRIVATE FUNCTION (self T_SingleTableDA) setBrowseTitle(filterActive BOOLEAN)
@@ -287,11 +380,11 @@ PRIVATE FUNCTION (self T_SingleTableDA)
   fields T_fields)
   RETURNS(STRING, BOOLEAN)
   DEFINE d ui.Dialog
-  DEFINE i, j INT
+  DEFINE i, j, winId INT
   DEFINE s, q, sql STRING
 
   IF self.getFilterForm() IS NOT NULL THEN
-    OPEN WINDOW w_filter WITH FORM self.filterForm
+    LET winId = utils.openDynamicWindow(self.filterForm)
     IF self.filterTitle IS NULL THEN
       LET self.filterTitle =
         SFMT("%1: Input filter criteria", utils.getFormTitle())
@@ -348,9 +441,7 @@ PRIVATE FUNCTION (self T_SingleTableDA)
   IF q IS NOT NULL THEN
     LET sql = sql, " WHERE ", q
   END IF
-  IF self.getFilterForm() IS NOT NULL THEN
-    CLOSE WINDOW w_filter
-  END IF
+  CALL utils.closeDynamicWindow(winId)
   DISPLAY "filter SQL:", sql, ",q IS NULL:", q IS NOT NULL
   RETURN (sql),
     q IS NOT NULL -- Need to make braces around sql: The compiler reads RETURN sql as RETURN; SQL ..
@@ -396,16 +487,21 @@ END FUNCTION
 PRIVATE FUNCTION (self T_SingleTableDA)
   inputRow(
   DA ui.Dialog, fields T_fields, recordVal reflect.Value, title STRING)
-  DEFINE ev, err, curr, oldValue, name STRING
+  DEFINE ev, err, curr, oldValue, name, actionName STRING
   DEFINE d ui.Dialog
-  DEFINE i INT
+  DEFINE i, winId INT
   DEFINE handled BOOLEAN
-  DEFINE ifvar T_sDAdyn
+  DEFINE ifvarII I_sDAdynInitInput
+  DEFINE ifvarBF I_sDAdynBeforeField
+  DEFINE ifvarAF I_sDAdynAfterField
+  DEFINE ifvarIU I_sDAdynInsertUpdate
+  DEFINE ifvarOA I_sDAdynOnActionInInput
+  DEFINE ifvarIE I_sDAdynOnInputEvent
   DEFINE fv, value reflect.Value
   --DEFINE trec reflect.Type
   IF self.inputForm.getLength() > 0 THEN
     --create a separate window , otherwise self.browseForm is used for INPUT
-    OPEN WINDOW w_input WITH FORM self.inputForm
+    LET winId = openDynamicWindow(self.inputForm)
     IF self.inputTitle IS NULL THEN
       LET self.inputTitle = utils.getFormTitle()
     END IF
@@ -416,7 +512,6 @@ PRIVATE FUNCTION (self T_SingleTableDA)
   END IF
   --for the title processing we could add another callback
   CALL fgl_settitle(SFMT("%1: %2", self.inputTitle, title))
-  LET ifvar = reflectVal2IF(recordVal)
   LET d = ui.Dialog.createInputByName(fields)
   CALL d.addTrigger("ON ACTION accept")
   CALL d.addTrigger("ON ACTION cancel")
@@ -426,7 +521,9 @@ PRIVATE FUNCTION (self T_SingleTableDA)
   END FOR
   --call back the init method in INPUT
   --there one can add custom actions, hide fields etc
-  CALL ifvar.initINPUT(self, d)
+  IF implementsIF(recordVal, reflect.value.valueOf(ifvarII)) THEN
+    CALL ifvarII.initINPUT(self, d)
+  END IF
 
   WHILE TRUE
     LET ev = d.nextEvent()
@@ -436,32 +533,46 @@ PRIVATE FUNCTION (self T_SingleTableDA)
       WHEN ev.getIndexOf(C_BEFORE_FIELD, 1) = 1
         MYASSERT(curr.getLength() > 0)
         LET oldValue = d.getFieldValue(curr)
-        CALL ifvar.BeforeField(d, curr)
+        IF implementsIF(recordVal, reflect.value.valueOf(ifvarBF)) THEN
+          CALL ifvarBF.BeforeField(d, curr)
+        END IF
         CONTINUE WHILE
       WHEN ev.getIndexOf(C_AFTER_FIELD, 1) = 1
         --after field: we copy the dialog value into the fields value
-        MYASSERT(curr.getLength() > 0)
-        LET fv = utils.getReflectFieldByName(recordVal, curr)
-        MYASSERT(fv IS NOT NULL)
-        LET value = reflect.Value.copyOf(d.getFieldValue(curr))
-        MYASSERT(fv.getType().isAssignableFrom(value.getType()))
-        CALL fv.set(value)
-        CALL ifvar.AfterField(d, curr, oldValue) RETURNING err
-        IF err IS NOT NULL THEN
-          ERROR err
-          CALL d.nextField(d.getCurrentItem())
+        IF implementsIF(recordVal, reflect.value.valueOf(ifvarAF)) THEN
+          MYASSERT(curr.getLength() > 0)
+          LET fv = utils.getReflectFieldByName(recordVal, curr)
+          MYASSERT(fv IS NOT NULL)
+          LET value = reflect.Value.copyOf(d.getFieldValue(curr))
+          MYASSERT(fv.getType().isAssignableFrom(value.getType()))
+          CALL fv.set(value)
+          CALL ifvarAF.AfterField(d, curr, oldValue) RETURNING err
+          IF err IS NOT NULL THEN
+            ERROR err
+            CALL d.nextField(d.getCurrentItem())
+          END IF
         END IF
         CONTINUE WHILE
-      OTHERWISE --pass any other event the onINPUTevent function
-        CALL ifvar.onINPUTevent(
-            d, ev, curr, IIF(curr.getLength() > 0, d.getFieldValue(curr), NULL))
-          RETURNING handled, err
-        IF handled THEN
-          CONTINUE WHILE
+      WHEN ev.getIndexOf(C_ON_ACTION, 1) = 1
+        IF implementsIF(recordVal, reflect.value.valueOf(ifvarOA)) THEN
+          CALL ifvarOA.OnActionInINPUT(d, actionFromEvent(ev))
         END IF
-        IF err IS NOT NULL THEN
-          ERROR err
-          CALL d.nextField(d.getCurrentItem())
+      OTHERWISE --pass any other event the onINPUTevent function
+        IF implementsIF(recordVal, reflect.value.valueOf(ifvarIE)) THEN
+
+          CALL ifvarIE.onINPUTevent(
+              d,
+              ev,
+              curr,
+              IIF(curr.getLength() > 0, d.getFieldValue(curr), NULL))
+            RETURNING handled, err
+          IF handled THEN
+            CONTINUE WHILE
+          END IF
+          IF err IS NOT NULL THEN
+            ERROR err
+            CALL d.nextField(d.getCurrentItem())
+          END IF
         END IF
     END CASE
     CASE ev
@@ -484,11 +595,11 @@ PRIVATE FUNCTION (self T_SingleTableDA)
       CALL fv.set(value)
       CALL da.setFieldValue(name, d.getFieldValue(fields[i].name))
     END FOR
-    CALL ifvar.insertOrUpdate(title == "Update")
+    IF implementsIF(recordVal, reflect.value.valueOf(ifvarIU)) THEN
+      CALL ifvarIU.insertOrUpdate(title == "Update")
+    END IF
   END IF
   --TODO SQL errors ?
   CALL d.close()
-  IF self.inputForm.getLength() > 0 THEN
-    CLOSE WINDOW w_input
-  END IF
+  CALL utils.closeDynamicWindow(winId)
 END FUNCTION

@@ -6,6 +6,7 @@ PUBLIC CONSTANT C_ON_ACTION = "ON ACTION"
 PUBLIC CONSTANT C_BEFORE_ROW = "BEFORE ROW"
 PUBLIC CONSTANT C_AFTER_ROW = "AFTER ROW"
 DEFINE mShowStack BOOLEAN
+DEFINE mWindows ARRAY[10] OF BOOLEAN
 
 FUNCTION myerrAndStackTrace(errstr STRING)
   LET mShowStack = TRUE
@@ -336,4 +337,74 @@ END FUNCTION
 
 FUNCTION getFormTitle() RETURNS STRING
   RETURN ui.Window.getCurrent().getForm().getNode().getAttribute("text")
+END FUNCTION
+
+--really not nice, but not a road block
+--it would be very handy if we wouldn't need to code a function like that
+FUNCTION openDynamicWindow(frm STRING) RETURNS INT
+  DEFINE found STRING
+  DEFINE i INT
+  FOR i = 1 TO 10
+    IF NOT mWindows[i] THEN
+      LET mWindows[i] = TRUE
+      LET found = TRUE
+      EXIT FOR
+    END IF
+  END FOR
+  IF NOT found THEN
+    CALL myerrAndStackTrace("No more windows in openDynamicWindow")
+  END IF
+  CASE i
+    WHEN 1
+      OPEN WINDOW dynw1 WITH FORM frm
+    WHEN 2
+      OPEN WINDOW dynw2 WITH FORM frm
+    WHEN 3
+      OPEN WINDOW dynw3 WITH FORM frm
+    WHEN 4
+      OPEN WINDOW dynw4 WITH FORM frm
+    WHEN 5
+      OPEN WINDOW dynw5 WITH FORM frm
+    WHEN 6
+      OPEN WINDOW dynw6 WITH FORM frm
+    WHEN 7
+      OPEN WINDOW dynw7 WITH FORM frm
+    WHEN 8
+      OPEN WINDOW dynw8 WITH FORM frm
+    WHEN 9
+      OPEN WINDOW dynw9 WITH FORM frm
+    WHEN 10
+      OPEN WINDOW dynw10 WITH FORM frm
+  END CASE
+  RETURN i
+END FUNCTION
+
+FUNCTION closeDynamicWindow(winId STRING)
+  CASE winId
+    WHEN 0  --winId was never initialized
+      RETURN
+    WHEN 1
+      CLOSE WINDOW dynw1
+    WHEN 2
+      CLOSE WINDOW dynw2
+    WHEN 3
+      CLOSE WINDOW dynw3
+    WHEN 4
+      CLOSE WINDOW dynw4
+    WHEN 5
+      CLOSE WINDOW dynw5
+    WHEN 6
+      CLOSE WINDOW dynw6
+    WHEN 7
+      CLOSE WINDOW dynw7
+    WHEN 8
+      CLOSE WINDOW dynw8
+    WHEN 9
+      CLOSE WINDOW dynw9
+    WHEN 10
+      CLOSE WINDOW dynw10
+    OTHERWISE
+      CALL myerrAndStackTrace(SFMT("Wrong winId:%1,must be between 0 and 10", winId))
+  END CASE
+  LET mWindows[winId] = FALSE
 END FUNCTION

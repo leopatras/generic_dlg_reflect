@@ -1,0 +1,29 @@
+DATABASE stores
+
+LAYOUT (TEXT = "Orders")
+TABLE(HEIGHT=15 LINES)
+{
+ Order Number  Order Date   Customer Num  Ship Instr  Backlog    PO Num    Ship Date  Ship Weight  Ship Charge  Paid Date
+[f000        |f001        |f002          |f003      | f004     |f005     | f006     | f007       | f008       |f009       ]
+}
+END END
+
+TABLES
+orders
+
+ATTRIBUTES
+
+
+f000 = orders.order_num,NOENTRY;
+f001 = orders.order_date;
+f002 = orders.customer_num,NOENTRY,HIDDEN;
+f003 = orders.ship_instruct;
+f004 = orders.backlog;
+f005 = orders.po_num;
+f006 = orders.ship_date;
+f007 = orders.ship_weight;
+f008 = orders.ship_charge;
+f009 = orders.paid_date;
+
+INSTRUCTIONS
+SCREEN RECORD scr(orders.*)
