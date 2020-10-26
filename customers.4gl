@@ -4,10 +4,10 @@ IMPORT FGL utils
 IMPORT FGL sDAdyn
 IMPORT FGL orders
 SCHEMA stores
-TYPE T_customer RECORD LIKE customer.* 
+TYPE T_customer RECORD LIKE customer.*
 TYPE T_customers DYNAMIC ARRAY OF T_customer
 TYPE T_customersWithMethods RECORD
-    c T_customers
+  c T_customers
 END RECORD
 CONSTANT SHOW_ORDERS = "Show Orders"
 CONSTANT CUSTOM_ACTION = "Custom Action"
@@ -16,21 +16,50 @@ MAIN
   DEFINE c T_customers
   DEFINE d T_customersWithMethods
   DEFINE sDA sDAdyn.T_SingleTableDA
+  IF FALSE THEN
+    CALL checkInterfaces(c,d)
+  END IF
   CALL utils.dbconnect()
   LET sDA.sqlAll = "SELECT * FROM CUSTOMER"
   LET sDA.initDA = FUNCTION initDA
   LET sDA.browseForm = "customers_singlerow"
   LET sDA.browseRecord = "scr"
-  LET sDA.hasUpdate=TRUE
-  LET sDA.hasAppend=TRUE
-  LET sDA.hasDelete=TRUE
-  LET d.c=c
-  LET sDA.delegateDA=reflect.Value.valueOf(d)
+  LET sDA.hasUpdate = TRUE
+  LET sDA.hasAppend = TRUE
+  LET sDA.hasDelete = TRUE
+  LET d.c = c
+  LET sDA.delegateDA = reflect.Value.valueOf(d)
   --LET sDA.hasFilter=TRUE
   --LET sDA.filterInitially=TRUE
   CALL sDA.browseArray(reflect.Value.valueOf(c))
   --CALL da()
 END MAIN
+
+FUNCTION checkInterfaces(
+  c T_customers,d T_customersWithMethods INOUT) 
+  --surrounds the missing IMPLEMENTS with a compiler check
+  DEFINE iAR I_sDAdynAfterRow
+  DEFINE iBR I_sDAdynBeforeRow
+  DEFINE iDR I_sDAdynDeleteRow
+  DEFINE iOE I_sDAdynOnDAEvent
+  DEFINE iII I_sDAdynInitInput
+  DEFINE iBF I_sDAdynBeforeField
+  DEFINE iAF I_sDAdynAfterField
+  DEFINE iIU I_sDAdynInsertUpdate
+  DEFINE iOAD I_sDAdynOnActionInDA
+  DEFINE iOAI I_sDAdynOnActionInInput
+  RETURN
+  LET iAR = c[1]
+  LET iBR = c[1]
+  LET iDR = c[1]
+  LET iOE = c[1]
+  LET iAF = c[1]
+  LET iBF = c[1]
+  LET iIU = c[1]
+  LET iOAI = c[1]
+  LET iOAD = c[1]
+  LET iOAD = d
+END FUNCTION
 
 FUNCTION da()
   DEFINE a T_customers
@@ -65,18 +94,22 @@ FUNCTION (self T_customer) DeleteRow(d ui.Dialog, row INT) RETURNS()
   DISPLAY SFMT("customer DeleteRow:%1", row)
 END FUNCTION
 
-FUNCTION (self T_customer) OnActionInDA( actionName STRING,row INT) RETURNS ()
-  DISPLAY SFMT("OnActionInDA actionName:'%1',row:%2", actionName,row)
+FUNCTION (self T_customer) OnActionInDA(actionName STRING, row INT) RETURNS()
+  DISPLAY SFMT("OnActionInDA actionName:'%1',row:%2", actionName, row)
   CASE actionName
     WHEN SHOW_ORDERS
-      CALL orders.showOrders(self.customer_num,self.fname,self.lname)
+      CALL orders.showOrders(self.customer_num, self.fname, self.lname)
     OTHERWISE
-      DISPLAY "actionName:'",actionName,"' not handled"
+      DISPLAY "actionName:'", actionName, "' not handled"
   END CASE
 END FUNCTION
 
-FUNCTION (self T_customersWithMethods) OnActionInDA( actionName STRING, row INT) RETURNS()
-  DISPLAY SFMT("customerWithMethods OnActionInDA actionName:'%1',row:%2", actionName,row)
+FUNCTION (self T_customersWithMethods)
+  OnActionInDA(
+  actionName STRING, row INT)
+  RETURNS()
+  DISPLAY SFMT("customerWithMethods OnActionInDA actionName:'%1',row:%2",
+    actionName, row)
 END FUNCTION
 
 FUNCTION (self T_customer)
@@ -114,7 +147,7 @@ FUNCTION (self T_customer)
   RETURN NULL --NULL means: no error
 END FUNCTION
 
-FUNCTION (self T_customer) OnActionInINPUT( d ui.Dialog, actionName STRING)
+FUNCTION (self T_customer) OnActionInINPUT(d ui.Dialog, actionName STRING)
   CASE actionName
     WHEN CUSTOM_ACTION
       DISPLAY "custom action chosen"

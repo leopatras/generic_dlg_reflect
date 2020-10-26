@@ -42,7 +42,7 @@ PUBLIC TYPE I_sDAdynAfterField INTERFACE
 END INTERFACE
 
 PUBLIC TYPE I_sDAdynOnActionInInput INTERFACE
-  OnActionInINPUT(d ui.Dialog, name STRING) RETURNS()
+  OnActionInINPUT(d ui.Dialog, actionName STRING) RETURNS()
 END INTERFACE
 
 PUBLIC TYPE I_sDAdynOnInputEvent INTERFACE
