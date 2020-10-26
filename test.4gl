@@ -12,7 +12,8 @@ TYPE T_4m RECORD LIKE customer.* --this RECORD has other methods
 TYPE T_5 RECORD
   lname LIKE customer.lname,
   fname LIKE customer.fname,
-  unrelated STRING
+  birthdate DATE,
+  unrelated INT
 END RECORD
 
 
@@ -81,6 +82,14 @@ MAIN
   MYASSERT(t5arr[2].lname="Hansen")
   MYASSERT(t5arr.getLength()=2)
   DISPLAY "tests passed"
+  LET t5arr[1].unrelated = 5
+  MYASSERT(utils.getArrayRecEl(reflect.Value.valueOf(t5arr),1,"fname")=="Hans")
+  MYASSERT(utils.getArrayRecElINT(reflect.Value.valueOf(t5arr),1,"unrelated")==5)
+  LET t5arr[1].birthdate = TODAY
+  MYASSERT(utils.getArrayRecElDATE(reflect.Value.valueOf(t5arr),1,"birthdate")==TODAY)
+  CALL utils.setArrayRecEl(reflect.Value.valueOf(t5arr),1,"unrelated",6)
+  MYASSERT(utils.getArrayRecElINT(reflect.Value.valueOf(t5arr),1,"unrelated")==6)
+  MYASSERT(t5arr[1].unrelated=6)
 END MAIN
 
 FUNCTION (self T_3m) a_method()

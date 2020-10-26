@@ -9,6 +9,7 @@ PUBLIC TYPE I_SingleTableDA INTERFACE
 END INTERFACE
 
 --define a set of interface methods custom RECORDs must implement
+--TODO: have a way to define default INTERFACE methods or to mark them optional
 PUBLIC TYPE T_sDAdyn INTERFACE
   --initDA(d ui.Dialog) RETURNS (),
   initINPUT(sdi I_SingleTableDA, d ui.Dialog) RETURNS(),
@@ -217,7 +218,6 @@ FUNCTION (self T_SingleTableDA) browseArray(arrval reflect.Value)
           LET row = d.getCurrentRow(self.browseRecord)
           CALL self.inputRow(d, fields, arrval.getArrayElement(row), "Update")
           CALL self.setBrowseTitle(filterActive)
-          -- TODO: perform an SQL UPDATE
         WHEN "ON APPEND"
           CALL arrval.appendArrayElement()
           LET row = arrval.getLength()
@@ -228,7 +228,6 @@ FUNCTION (self T_SingleTableDA) browseArray(arrval reflect.Value)
           END IF
           CALL checkUpdateDelete(d, arrval)
           CALL self.setBrowseTitle(filterActive)
-          -- TODO: perform an SQL INSERT
         WHEN "ON DELETE"
           LET ifvar = getRecordIFfromArray(arrval, row)
           LET int_flag = FALSE
@@ -394,21 +393,6 @@ PRIVATE FUNCTION setArrayData(
   END IF
 END FUNCTION
 
-PRIVATE FUNCTION getFieldByName(
-  recv reflect.Value, name STRING)
-  RETURNS reflect.Value
-  DEFINE i, len INT
-  DEFINE trec reflect.Type
-  LET trec = recv.getType()
-  LET len = trec.getFieldCount()
-  FOR i = 1 TO len
-    IF trec.getFieldName(i) == name THEN
-      RETURN recv.getField(i)
-    END IF
-  END FOR
-  RETURN NULL
-END FUNCTION
-
 PRIVATE FUNCTION (self T_SingleTableDA)
   inputRow(
   DA ui.Dialog, fields T_fields, recordVal reflect.Value, title STRING)
@@ -457,7 +441,7 @@ PRIVATE FUNCTION (self T_SingleTableDA)
       WHEN ev.getIndexOf(C_AFTER_FIELD, 1) = 1
         --after field: we copy the dialog value into the fields value
         MYASSERT(curr.getLength() > 0)
-        LET fv = getFieldByName(recordVal, curr)
+        LET fv = utils.getReflectFieldByName(recordVal, curr)
         MYASSERT(fv IS NOT NULL)
         LET value = reflect.Value.copyOf(d.getFieldValue(curr))
         MYASSERT(fv.getType().isAssignableFrom(value.getType()))

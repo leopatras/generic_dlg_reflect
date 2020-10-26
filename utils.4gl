@@ -48,6 +48,94 @@ FUNCTION clearReflectArray(arrVal reflect.Value)
   MYASSERT(arrVal.getLength() == 0)
 END FUNCTION
 
+--TODO: have a getFieldByName() reflection method
+FUNCTION getReflectFieldByName(
+  recv reflect.Value, name STRING)
+  RETURNS reflect.Value
+  DEFINE i, len INT
+  DEFINE trec reflect.Type
+  LET trec = recv.getType()
+  LET len = trec.getFieldCount()
+  FOR i = 1 TO len
+    IF trec.getFieldName(i) == name THEN
+      RETURN recv.getField(i)
+    END IF
+  END FOR
+  RETURN NULL
+END FUNCTION
+
+FUNCTION getArrayRecField(
+  arrVal reflect.Value, idx INT, member STRING)
+  RETURNS reflect.Value
+  DEFINE t, trec reflect.Type
+  DEFINE el, field reflect.Value
+  LET t = arrVal.getType()
+  MYASSERT(t.getKind() == "ARRAY")
+  LET trec = t.getElementType()
+  MYASSERT(trec.getKind() == "RECORD")
+  MYASSERT(idx >= 1 AND idx <= arrVal.getLength())
+  LET el = arrVal.getArrayElement(idx)
+  IF (field := getReflectFieldByName(el, member)) IS NULL THEN
+    CALL myerrAndStackTrace(
+      SFMT("Can't find RECORD member '%1' in array", member))
+  END IF
+  RETURN field
+END FUNCTION
+
+--function to get arbitray member values for an array index ( ARRAY OF RECORD )
+FUNCTION getArrayRecEl(
+  arrVal reflect.Value, idx INT, member STRING)
+  RETURNS STRING
+  DEFINE field reflect.Value
+  LET field = getArrayRecField(arrVal, idx, member)
+  RETURN field.toString()
+END FUNCTION
+
+--function to set arbitray member values for an array index ( ARRAY OF RECORD )
+FUNCTION setArrayRecEl(
+  arrVal reflect.Value, idx INT, member STRING, newVal STRING)
+  RETURNS()
+  DEFINE field, newValR reflect.Value
+  LET field = getArrayRecField(arrVal, idx, member)
+  LET newValR = reflect.Value.valueOf(newVal)
+  MYASSERT(field.getType().isAssignableFrom(newValR.getType()))
+  CALL field.set(newValR)
+END FUNCTION
+
+--sample about how one could return a specific member type (INT)
+FUNCTION getArrayRecElINT(
+  arrVal reflect.Value, idx INT, member STRING)
+  RETURNS INT
+  DEFINE field reflect.Value
+  DEFINE x INT
+  LET field = getArrayRecField(arrVal, idx, member)
+  --we explicitly check for the type to avoid nonsense NULL return values
+  IF NOT field.getType().toString().equals("INTEGER") THEN
+    CALL myerrAndStackTrace(
+      SFMT("member '%1' doesn't have type INTEGER, actual: %2",
+        member, field.getType().toString()))
+  END IF
+  LET x = field.toString()
+  RETURN x
+END FUNCTION
+
+--sample about how one could return a specific member type (DATE)
+FUNCTION getArrayRecElDATE(
+  arrVal reflect.Value, idx INT, member STRING)
+  RETURNS INT
+  DEFINE field reflect.Value
+  DEFINE x DATE
+  LET field = getArrayRecField(arrVal, idx, member)
+  --we explicitly check for the type to avoid nonsense NULL return values
+  IF NOT field.getType().toString().equals("DATE") THEN
+    CALL myerrAndStackTrace(
+      SFMT("member '%1' doesn't have type DATE, actual: %2",
+        member, field.getType().toString()))
+  END IF
+  LET x = field.toString()
+  RETURN x
+END FUNCTION
+
 --copies a record using reflection, the RECORD member count must be equal,
 --the names at a given member position must match and the members must be
 --assignable
@@ -228,7 +316,6 @@ FUNCTION copyArrayOfRecordByName(src reflect.Value, dest reflect.Value)
     END IF
   END FOR
   --for huge existing destination arrays  this might be slow
-  --TODO: have a clearArray() method
   CALL clearReflectArray(dest)
   LET len = src.getLength()
   LET len2 = idxarrsrc.getLength()
