@@ -14,29 +14,27 @@ CONSTANT CUSTOM_ACTION = "Custom Action"
 
 MAIN
   DEFINE c T_customers
-  DEFINE d T_customersWithMethods
-  DEFINE sDA sDAdyn.T_SingleTableDA
+  DEFINE d T_customersWithMethods = (c: c)
+  DEFINE sDA sDAdyn.T_SingleTableDA =
+    (sqlAll: "SELECT * FROM CUSTOMER",
+      browseForm: "customers_singlerow",
+      browseRecord: "scr",
+      hasUpdate: TRUE,
+      hasAppend: TRUE,
+      hasDelete: TRUE,
+      hasFilter: TRUE -- ,filterInitially:TRUE
+      )
   IF FALSE THEN
-    CALL checkInterfaces(c,d)
+    CALL checkInterfaces(c, d)
   END IF
   CALL utils.dbconnect()
-  LET sDA.sqlAll = "SELECT * FROM CUSTOMER"
   LET sDA.initDA = FUNCTION initDA
-  LET sDA.browseForm = "customers_singlerow"
-  LET sDA.browseRecord = "scr"
-  LET sDA.hasUpdate = TRUE
-  LET sDA.hasAppend = TRUE
-  LET sDA.hasDelete = TRUE
-  LET d.c = c
   LET sDA.delegateDA = reflect.Value.valueOf(d)
-  --LET sDA.hasFilter=TRUE
-  --LET sDA.filterInitially=TRUE
   CALL sDA.browseArray(reflect.Value.valueOf(c))
   --CALL da()
 END MAIN
 
-FUNCTION checkInterfaces(
-  c T_customers,d T_customersWithMethods INOUT) 
+FUNCTION checkInterfaces(c T_customers, d T_customersWithMethods INOUT)
   --surrounds the missing IMPLEMENTS with a compiler check
   DEFINE iAR I_sDAdynAfterRow
   DEFINE iBR I_sDAdynBeforeRow
@@ -49,9 +47,9 @@ FUNCTION checkInterfaces(
   DEFINE iOAD I_sDAdynOnActionInDA
   DEFINE iOAI I_sDAdynOnActionInInput
   RETURN
-  LET iAR = c[1]
-  LET iBR = c[1]
-  LET iDR = c[1]
+  LET iAR = c[1] --the compiler checks here if T_customer implements I_sDAdynAfterRow
+  LET iBR = c[1] --the compiler checks here if T_customer implements I_sDAdynBeforeRow
+  LET iDR = c[1] --etc. etc.
   LET iOE = c[1]
   LET iAF = c[1]
   LET iBF = c[1]

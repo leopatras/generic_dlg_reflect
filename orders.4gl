@@ -19,9 +19,8 @@ END MAIN
 
 FUNCTION showOrders( customer_num LIKE customer.customer_num, fname LIKE customer.fname, lname LIKE customer.lname)
   DEFINE o T_orders
-  DEFINE mo T_ordersWithMethods 
-  DEFINE sDA sDAdyn.T_SingleTableDA
-  LET mo.o = o
+  DEFINE mo T_ordersWithMethods = ( o: o)
+  DEFINE sDA sDAdyn.T_SingleTableDA = ( browseForm:"orders",browseRecord:"scr")
   --setting the delegate ensures we get events for situations where the array is empty
   LET sDA.delegateDA = reflect.Value.valueOf(mo)
   IF customer_num == -1 THEN
@@ -32,8 +31,6 @@ FUNCTION showOrders( customer_num LIKE customer.customer_num, fname LIKE custome
     LET sDA.browseTitle=sfmt("Orders of Customer %1: %2 %3",customer_num,fname CLIPPED,lname CLIPPED)
   END IF
   LET sDA.initDA = FUNCTION initDA
-  LET sDA.browseForm = "orders"
-  LET sDA.browseRecord = "scr"
   CALL sDA.browseArray(reflect.Value.valueOf(o))
 END FUNCTION
 
@@ -43,12 +40,12 @@ PRIVATE FUNCTION initDA(sdi sDAdyn.I_SingleTableDA, d ui.Dialog) RETURNS()
 END FUNCTION
 
 FUNCTION (self T_order) OnActionInDA( actionName STRING,row INT) RETURNS ()
-  --custom action doesn't appear here when the array is empty
+  --custom action doesn't trigger here when the array is empty
   DISPLAY SFMT("order OnActionInDA actionName:'%1',row:%2", actionName,row)
 END FUNCTION
 
 FUNCTION (self T_ordersWithMethods) OnActionInDA( actionName STRING, row INT) RETURNS()
-  --custom action always appears
+  --custom action always triggers here
   DISPLAY SFMT("ordersWithMethods OnActionInDA actionName:'%1',row:%2", actionName,row)
   IF row>=1 AND row<=self.o.getLength() THEN
     --shows how to access the array
