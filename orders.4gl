@@ -4,9 +4,9 @@ IMPORT util
 IMPORT FGL utils
 IMPORT FGL sDAdyn
 SCHEMA stores
-TYPE T_order RECORD LIKE orders.*
+TYPE T_order RECORD LIKE orders.* --TODO: add IMPLEMENTS
 TYPE T_orders DYNAMIC ARRAY OF T_order
-TYPE T_ordersWithMethods RECORD
+TYPE T_ordersWithMethods RECORD --TODO: add IMPLEMENTS
   o T_orders
 END RECORD
 

@@ -5,9 +5,9 @@ IMPORT FGL utils
 IMPORT FGL sDAdyn
 IMPORT FGL orders
 SCHEMA stores
-TYPE T_customer RECORD LIKE customer.*
+TYPE T_customer RECORD LIKE customer.* --TODO: add IMPLEMENTS
 TYPE T_customers DYNAMIC ARRAY OF T_customer
-TYPE T_customersWithMethods RECORD
+TYPE T_customersWithMethods RECORD --TODO: add IMPLEMENTS
   c T_customers
 END RECORD
 CONSTANT SHOW_ORDERS = "show_orders"
