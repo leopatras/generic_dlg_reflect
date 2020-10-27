@@ -24,9 +24,6 @@ MAIN
       hasDelete: TRUE,
       hasFilter: TRUE -- ,filterInitially:TRUE
       )
-  IF FALSE THEN
-    CALL checkInterfaces(d.c, d)
-  END IF
   CALL utils.dbconnect()
   LET opts.initDA = FUNCTION initDA
   LET opts.delegateDA = reflect.Value.valueOf(d)
@@ -35,33 +32,33 @@ MAIN
   --CALL da()
 END MAIN
 
-FUNCTION checkInterfaces(c T_customers, d T_customersWithMethods INOUT)
+FUNCTION checkInterfaces(c T_customer, d T_customersWithMethods INOUT)
   --surrounds the missing IMPLEMENTS with a compiler check
   DEFINE iAR I_sDAdynAfterRow
   DEFINE iBR I_sDAdynBeforeRow
   DEFINE iDR I_sDAdynDeleteRow
   DEFINE iOE I_sDAdynOnDAEvent
   DEFINE iII I_sDAdynInitInput
+  DEFINE iIE I_sDAdynOnInputEvent
   DEFINE iBF I_sDAdynBeforeField
   DEFINE iAF I_sDAdynAfterField
   DEFINE iIU I_sDAdynInsertUpdate
   DEFINE iOAD I_sDAdynOnActionInDA
   DEFINE iOAI I_sDAdynOnActionInInput
-  RETURN
-  LET iAR =
-    c[1] --the compiler checks here if T_customer implements I_sDAdynAfterRow
-  LET iBR =
-    c[1] --the compiler checks here if T_customer implements I_sDAdynBeforeRow
-  LET iDR = c[1] --etc. etc.
-  LET iOE = c[1]
-  LET iAF = c[1]
-  LET iBF = c[1]
-  LET iII = c[1]
-  LET iIU = c[1]
-  LET iOAI = c[1]
-  LET iOAD = c[1]
-  LET iOAD = d
+  MYASSERT(FALSE)
+  LET iAR = c --the compiler checks here if T_customer implements I_sDAdynAfterRow
+  LET iBR = c --the compiler checks here if T_customer implements I_sDAdynBeforeRow
   LET iBR = d
+  LET iDR = c --etc. etc.
+  LET iOE = c
+  LET iAF = c
+  LET iBF = c
+  LET iII = c
+  LET iIE = c
+  LET iIU = c
+  LET iOAI = c
+  LET iOAD = c
+  LET iOAD = d
 END FUNCTION
 
 FUNCTION da()

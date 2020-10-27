@@ -46,6 +46,14 @@ PRIVATE FUNCTION initDA(sdi sDAdyn.I_SingleTableDA, d ui.Dialog) RETURNS()
   CALL sdi.addOnAction(d, CUSTOM_ACTION)
 END FUNCTION
 
+FUNCTION checkInterfaces(c T_order, d T_ordersWithMethods INOUT)
+  --surrounds the missing IMPLEMENTS with a compiler check
+  DEFINE iOAD I_sDAdynOnActionInDA
+  MYASSERT(FALSE)
+  LET iOAD = c  --the compiler checks here if T_order implements I_sDAdynOnActionInDA
+  LET iOAD = d  --the compiler checks here if T_ordersWithMethods implements I_sDAdynOnActionInDA
+END FUNCTION
+
 FUNCTION (self T_order) OnActionInDA(actionName STRING, row INT) RETURNS()
   UNUSED(self)
   --custom action doesn't trigger here when the array is empty
