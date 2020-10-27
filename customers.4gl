@@ -1,3 +1,4 @@
+&include "myassert.inc"
 IMPORT reflect
 IMPORT util
 IMPORT FGL utils
@@ -9,13 +10,12 @@ TYPE T_customers DYNAMIC ARRAY OF T_customer
 TYPE T_customersWithMethods RECORD
   c T_customers
 END RECORD
-CONSTANT SHOW_ORDERS = "Show Orders"
+CONSTANT SHOW_ORDERS = "show_orders"
 CONSTANT CUSTOM_ACTION = "Custom Action"
 
 MAIN
-  DEFINE c T_customers
-  DEFINE d T_customersWithMethods = (c: c)
-  DEFINE sDA sDAdyn.T_SingleTableDA =
+  DEFINE d T_customersWithMethods
+  DEFINE opts sDAdyn.T_SingleTableDAOptions =
     (sqlAll: "SELECT * FROM CUSTOMER",
       browseForm: "customers_singlerow",
       browseRecord: "scr",
@@ -25,12 +25,13 @@ MAIN
       hasFilter: TRUE -- ,filterInitially:TRUE
       )
   IF FALSE THEN
-    CALL checkInterfaces(c, d)
+    CALL checkInterfaces(d.c, d)
   END IF
   CALL utils.dbconnect()
-  LET sDA.initDA = FUNCTION initDA
-  LET sDA.delegateDA = reflect.Value.valueOf(d)
-  CALL sDA.browseArray(reflect.Value.valueOf(c))
+  LET opts.initDA = FUNCTION initDA
+  LET opts.delegateDA = reflect.Value.valueOf(d)
+  LET opts.arrayValue = reflect.Value.valueOf(d.c)
+  CALL sDAdyn.browseArray(opts)
   --CALL da()
 END MAIN
 
@@ -47,16 +48,20 @@ FUNCTION checkInterfaces(c T_customers, d T_customersWithMethods INOUT)
   DEFINE iOAD I_sDAdynOnActionInDA
   DEFINE iOAI I_sDAdynOnActionInInput
   RETURN
-  LET iAR = c[1] --the compiler checks here if T_customer implements I_sDAdynAfterRow
-  LET iBR = c[1] --the compiler checks here if T_customer implements I_sDAdynBeforeRow
+  LET iAR =
+    c[1] --the compiler checks here if T_customer implements I_sDAdynAfterRow
+  LET iBR =
+    c[1] --the compiler checks here if T_customer implements I_sDAdynBeforeRow
   LET iDR = c[1] --etc. etc.
   LET iOE = c[1]
   LET iAF = c[1]
   LET iBF = c[1]
+  LET iII = c[1]
   LET iIU = c[1]
   LET iOAI = c[1]
   LET iOAD = c[1]
   LET iOAD = d
+  LET iBR = d
 END FUNCTION
 
 FUNCTION da()
@@ -78,17 +83,40 @@ END FUNCTION
 PRIVATE FUNCTION initDA(sdi sDAdyn.I_SingleTableDA, d ui.Dialog) RETURNS()
   DISPLAY "init customer DA called"
   CALL sdi.addOnAction(d, SHOW_ORDERS)
+  CALL d.setActionText(SHOW_ORDERS, "Show Orders")
+END FUNCTION
+
+PRIVATE FUNCTION count_orders(customer_num LIKE customer.customer_num)
+  DEFINE n INT
+  SELECT COUNT(*) INTO n FROM orders WHERE @customer_num == customer_num
+  RETURN n
+END FUNCTION
+
+PRIVATE FUNCTION checkOrders(
+  d ui.Dialog, customer_num LIKE customer.customer_num)
+  CALL d.setActionActive(SHOW_ORDERS, count_orders(customer_num) > 0)
 END FUNCTION
 
 FUNCTION (self T_customer) BeforeRow(d ui.Dialog, row INT) RETURNS()
   DISPLAY SFMT("customer BeforeRow:%1", row)
+  CALL checkOrders(d, self.customer_num)
+END FUNCTION
+
+FUNCTION (self T_customersWithMethods) BeforeRow(d ui.Dialog, row INT) RETURNS()
+  UNUSED(self)
+  UNUSED(d)
+  DISPLAY SFMT("customersWithMethods BeforeRow:%1", row)
 END FUNCTION
 
 FUNCTION (self T_customer) AfterRow(d ui.Dialog, row INT) RETURNS()
+  UNUSED(self)
+  UNUSED(d)
   DISPLAY SFMT("customer AfterRow:%1", row)
 END FUNCTION
 
 FUNCTION (self T_customer) DeleteRow(d ui.Dialog, row INT) RETURNS()
+  UNUSED(self)
+  UNUSED(d)
   DISPLAY SFMT("customer DeleteRow:%1", row)
 END FUNCTION
 
@@ -102,18 +130,15 @@ FUNCTION (self T_customer) OnActionInDA(actionName STRING, row INT) RETURNS()
   END CASE
 END FUNCTION
 
-FUNCTION (self T_customersWithMethods)
-  OnActionInDA(
-  actionName STRING, row INT)
-  RETURNS()
+FUNCTION (self T_customersWithMethods) OnActionInDA(actionName STRING, row INT)
+  UNUSED(self)
   DISPLAY SFMT("customerWithMethods OnActionInDA actionName:'%1',row:%2",
     actionName, row)
 END FUNCTION
 
-FUNCTION (self T_customer)
-  onDAevent(
-  d ui.Dialog, row INT, event STRING)
-  RETURNS()
+FUNCTION (self T_customer) onDAevent(d ui.Dialog, row INT, event STRING)
+  UNUSED(self)
+  UNUSED(d)
   DISPLAY SFMT("onDAevent ev:%1 row:%2", event, row)
   CASE event
     WHEN C_ON_ACTION || " " || SHOW_ORDERS
@@ -122,11 +147,14 @@ FUNCTION (self T_customer)
 END FUNCTION
 
 FUNCTION (self T_customer) initINPUT(sdi I_SingleTableDA, d ui.Dialog) RETURNS()
+  UNUSED(self)
   DISPLAY "init customer INPUT called"
   CALL sdi.addOnAction(d, CUSTOM_ACTION)
 END FUNCTION
 
 FUNCTION (self T_customer) BeforeField(d ui.Dialog, fieldName STRING) RETURNS()
+  UNUSED(self)
+  UNUSED(d)
   DISPLAY "customer BeforeField:", fieldName
 END FUNCTION
 
@@ -135,6 +163,7 @@ FUNCTION (self T_customer)
   AfterField(
   d ui.Dialog, fieldName STRING, oldValue STRING)
   RETURNS STRING
+  UNUSED(self)
   DISPLAY SFMT("AFTER FIELD field:%1 value:%2 oldValue:%3",
     fieldName, d.getFieldValue(fieldName), oldValue)
   CASE
@@ -146,8 +175,11 @@ FUNCTION (self T_customer)
 END FUNCTION
 
 FUNCTION (self T_customer) OnActionInINPUT(d ui.Dialog, actionName STRING)
+  UNUSED(self)
+  UNUSED(d)
   CASE actionName
     WHEN CUSTOM_ACTION
+      MESSAGE "custom action chosen"
       DISPLAY "custom action chosen"
   END CASE
 END FUNCTION
@@ -156,6 +188,8 @@ FUNCTION (self T_customer)
   onINPUTevent(
   d ui.Dialog, ev STRING, fieldName STRING, value STRING)
   RETURNS(BOOLEAN, STRING)
+  UNUSED(self)
+  UNUSED(d)
   DISPLAY SFMT("onINPUTevent ev:%1 field:%2 value:%3", ev, fieldName, value)
   RETURN FALSE, NULL
 END FUNCTION

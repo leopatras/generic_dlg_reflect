@@ -36,7 +36,6 @@ END MAIN
 
 --reads an sql query into the array and sets the members "by name"
 FUNCTION readIntoArray(arr reflect.Value, sql STRING) RETURNS()
-  DEFINE recv reflect.Value
   DEFINE tarr, trec, tf reflect.Type
   DEFINE cnt, fieldIndex INT
   DEFINE name,json_name STRING

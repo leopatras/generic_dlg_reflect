@@ -144,7 +144,6 @@ FUNCTION copyRecord(src reflect.Value, dest reflect.Value)
   DEFINE tsrc, tdst reflect.Type
   DEFINE fsrc, fdst reflect.Value
   DEFINE cnt, idx INT
-  DEFINE directAssignable BOOLEAN
   --DISPLAY "toString:", tarr.toString(), ",kind:", tarr.getKind()
   --DISPLAY src.toString()
   LET tsrc = src.getType()
@@ -237,7 +236,9 @@ FUNCTION copyArrayOfRecord(src reflect.Value, dest reflect.Value)
   END IF
   MYASSERT(trecsrc.getFieldCount() == trecdst.getFieldCount())
   LET numFields = trecsrc.getFieldCount()
-  IF NOT trecdst.isAssignableFrom(trecsrc) THEN
+  IF trecdst.isAssignableFrom(trecsrc) THEN
+    LET directAssignable = TRUE
+  ELSE
     --come in here for ex if we have RECORDs with different methods
     --check field count, name matching and matching types
     FOR idx = 1 TO numFields
@@ -253,10 +254,10 @@ FUNCTION copyArrayOfRecord(src reflect.Value, dest reflect.Value)
     LET elsrc = src.getArrayElement(idx)
     LET eldst = dest.getArrayElement(idx)
     MYASSERT(dest.getLength() == idx AND eldst IS NOT NULL AND NOT eldst.isNull())
-    IF FALSE AND directAssignable THEN
+    IF directAssignable THEN
       DISPLAY "here"
       MYASSERT(eldst.getType().isAssignableFrom(elsrc.getType()))
-      CALL eldst.set(eldst)
+      CALL eldst.set(elsrc)
     ELSE
       FOR j = 1 TO numFields
         LET fieldsrc = elsrc.getField(j)
@@ -381,7 +382,7 @@ END FUNCTION
 
 FUNCTION closeDynamicWindow(winId STRING)
   CASE winId
-    WHEN 0  --winId was never initialized
+    WHEN 0 --winId was never initialized
       RETURN
     WHEN 1
       CLOSE WINDOW dynw1
@@ -404,7 +405,8 @@ FUNCTION closeDynamicWindow(winId STRING)
     WHEN 10
       CLOSE WINDOW dynw10
     OTHERWISE
-      CALL myerrAndStackTrace(SFMT("Wrong winId:%1,must be between 0 and 10", winId))
+      CALL myerrAndStackTrace(
+        SFMT("Wrong winId:%1,must be between 0 and 10", winId))
   END CASE
   LET mWindows[winId] = FALSE
 END FUNCTION

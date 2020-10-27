@@ -2,7 +2,7 @@
 	fglform -M $<
 
 %.42m: %.4gl 
-	fglcomp -r -M $*
+	fglcomp -r -M -Wall $*
 
 MODULES = $(patsubst %.4gl, %.42m, $(wildcard *.4gl))
 FORMS   = $(patsubst %.per, %.42f, $(wildcard *.per))

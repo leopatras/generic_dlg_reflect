@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="ANSI_X3.4-1968"?>
+<StyleList>
+  <Style name="*">
+     <StyleAttribute name="actionPanelButtonTextAlign" value="left" />
+  </Style>
+</StyleList>
