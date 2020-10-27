@@ -15,7 +15,7 @@ PUBLIC TYPE I_sDAdynInitDA INTERFACE
 END INTERFACE
 
 PUBLIC TYPE I_sDAdynOnDAEvent INTERFACE
-  onDAevent(d ui.Dialog, row INT, event STRING) RETURNS()
+  OnDAevent(d ui.Dialog, row INT, event STRING) RETURNS()
 END INTERFACE
 
 PUBLIC TYPE I_sDAdynBeforeRow INTERFACE
@@ -51,7 +51,7 @@ PUBLIC TYPE I_sDAdynOnActionInInput INTERFACE
 END INTERFACE
 
 PUBLIC TYPE I_sDAdynOnInputEvent INTERFACE
-  onINPUTevent(
+  OnINPUTevent(
     d ui.Dialog, ev STRING, fieldName STRING, value STRING)
     RETURNS(BOOLEAN, STRING)
 END INTERFACE
@@ -60,14 +60,11 @@ PUBLIC TYPE I_sDAdynInsertUpdate INTERFACE
   insertOrUpdate(update BOOLEAN) RETURNS()
 END INTERFACE
 
-PUBLIC TYPE T_initDA FUNCTION(sdi I_SingleTableDA, d ui.Dialog) RETURNS()
-
 --define the public settable members of the
 --T_SingleTableDAa types
 PUBLIC TYPE T_SingleTableDAOptions RECORD
   delegateDA reflect.Value,
   arrayValue reflect.Value,
-  initDA T_initDA,
   browseForm STRING,
   browseRecord STRING,
   browseTitle STRING,
@@ -158,6 +155,8 @@ FUNCTION actionFromEvent(event STRING) RETURNS STRING
   RETURN actionName
 END FUNCTION
 
+--entry function callable by the outer world to
+--call the inner RECORD method
 FUNCTION browseArray(options T_SingleTableDAOptions INOUT)
   DEFINE sDA T_SingleTableDA
   --copy all options in a single step, hence  changes to
@@ -167,8 +166,11 @@ FUNCTION browseArray(options T_SingleTableDAOptions INOUT)
   CALL sDA.browseArray()
 END FUNCTION
 
-&define REFVAL(x) reflect.Value.valueOf(x)
-
+--implements a DISPLAY ARRAY with a dynamic dialog and calls back
+--into application code using interface methods in case they are
+--implemented
+--The DISPLAY ARRAY is surrounded by a WHILE loop to change filter conditions
+--depending on the passed options
 FUNCTION (self T_SingleTableDA) browseArray() RETURNS()
   DEFINE event, ans, sql,rec STRING
   DEFINE d ui.Dialog
@@ -265,10 +267,7 @@ FUNCTION (self T_SingleTableDA) browseArray() RETURNS()
       END IF
     END IF
     CALL setArrayData(d, rec, arrval)
-    --call back the custom function for initial add on's of the DISPLAY ARRAY
-    IF self.o.initDA IS NOT NULL THEN
-      CALL self.o.initDA(self, d)
-    END IF
+    --call back the delegate for initial add on's of the DISPLAY ARRAY
     IF self.o.delegateDA.canAssignToVariable(ifvarDA) THEN
       CALL self.o.delegateDA.assignToVariable(ifvarDA)
       CALL ifvarDA.initDA(self, d)
@@ -328,10 +327,6 @@ FUNCTION (self T_SingleTableDA) browseArray() RETURNS()
           LET int_flag = FALSE
           MYASSERT(row > 0 AND row <= arrval.getLength())
           LET el=arrval.getArrayElement(row)
-          IF el.canAssignToVariable(ifvarDelRow) THEN
-            CALL el.assignToVariable(ifvarDelRow)
-            CALL ifvarDelRow.DeleteRow(d, row)
-          END IF
           IF NOT int_flag THEN
             IF fgldialog.fgl_winQuestion(
                 title: "Attention",
@@ -341,7 +336,13 @@ FUNCTION (self T_SingleTableDA) browseArray() RETURNS()
                 icon: "quest",
                 dang: 0)
               == "yes" THEN
-              CALL arrval.deleteArrayElement(row)
+              IF el.canAssignToVariable(ifvarDelRow) THEN
+                CALL el.assignToVariable(ifvarDelRow)
+                CALL ifvarDelRow.DeleteRow(d, row)
+              END IF
+              IF NOT int_flag AND NOT status THEN
+                CALL arrval.deleteArrayElement(row)
+              END IF
             ELSE
               --inform the dyn dialog that no deletion should occur
               LET int_flag = TRUE
@@ -373,12 +374,9 @@ FUNCTION (self T_SingleTableDA) browseArray() RETURNS()
           END IF
         OTHERWISE
           LET row = d.getCurrentRow(rec)
-          IF row > 0 AND row <= arrval.getLength() THEN
-            LET el=arrval.getArrayElement(row)
-            IF el.canAssignToVariable(ifvarOE) THEN
-              CALL el.assignToVariable(ifvarOE)
-              CALL ifvarOE.onDAevent(d, row, event)
-            END IF
+          IF self.o.delegateDA.canAssignToVariable(ifvarOE) THEN
+            CALL self.o.delegateDA.assignToVariable(ifvarOE)
+            CALL ifvarOE.OnDAevent(d, row, event)
           END IF
       END CASE
     END WHILE
@@ -467,7 +465,7 @@ PRIVATE FUNCTION (self T_SingleTableDA)
     LET sql = sql, " WHERE ", q
   END IF
   CALL utils.closeDynamicWindow(winId)
-  DISPLAY "filter SQL:", sql, ",q IS NULL:", q IS NOT NULL
+  --DISPLAY "filter SQL:", sql, ",q IS NULL:", q IS NOT NULL
   RETURN (sql),
     q IS NOT NULL -- Need to make braces around sql: The compiler reads RETURN sql as RETURN; SQL ..
 END FUNCTION
@@ -509,6 +507,9 @@ PRIVATE FUNCTION setArrayData(
   END IF
 END FUNCTION
 
+--implents an INPUT with a dynamic dialog and calls
+--various interface methods in application code
+--if they are implemented
 PRIVATE FUNCTION (self T_SingleTableDA)
   inputRow(
   DA ui.Dialog, fields T_fields, recordVal reflect.Value, title STRING)
@@ -586,10 +587,10 @@ PRIVATE FUNCTION (self T_SingleTableDA)
           CALL recordVal.assignToVariable(ifvarOA)
           CALL ifvarOA.OnActionInINPUT(d, actionFromEvent(ev))
         END IF
-      OTHERWISE --pass any other event the onINPUTevent function
+      OTHERWISE --pass any other event to the OnINPUTevent function
         IF recordVal.canAssignToVariable(ifvarIE) THEN
           CALL recordVal.assignToVariable(ifvarIE)
-          CALL ifvarIE.onINPUTevent(
+          CALL ifvarIE.OnINPUTevent(
               d,
               ev,
               curr,
