@@ -61,6 +61,18 @@ FUNCTION checkInterfaces(c T_customer, d T_customersWithMethods INOUT)
   LET iOAD = d
 END FUNCTION
 
+FUNCTION show_cust(customer_num LIKE customer.customer_num)
+  DEFINE cust T_customer
+  SELECT * INTO cust.* FROM customer WHERE @customer_num=customer_num
+  OPEN WINDOW show_cust WITH FORM "customers_singlerow"
+  DISPLAY cust.* TO scr.*
+  MENU 
+    COMMAND "Exit"
+      EXIT MENU
+  END MENU
+  CLOSE WINDOW show_cust
+END FUNCTION
+
 FUNCTION da()
   DEFINE a T_customers
   OPEN FORM f FROM "customers"
@@ -79,7 +91,7 @@ END FUNCTION
 
 PRIVATE FUNCTION initDA(sdi sDAdyn.I_SingleTableDA, d ui.Dialog) RETURNS()
   DISPLAY "init customer DA called"
-  CALL sdi.addOnAction(d, SHOW_ORDERS)
+  CALL sdi.addOnActionRowBound(d, SHOW_ORDERS)
   CALL d.setActionText(SHOW_ORDERS, "Show Orders")
 END FUNCTION
 

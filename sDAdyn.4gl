@@ -5,10 +5,15 @@ IMPORT FGL fgldialog
 IMPORT FGL sql2array
 
 PUBLIC TYPE I_SingleTableDA INTERFACE
-  addOnAction(d ui.Dialog, actionName STRING)
+  addOnAction(d ui.Dialog, actionName STRING),
+  addOnActionRowBound(d ui.Dialog, actionName STRING)
 END INTERFACE
 
 --define a set of interfaces with single methods custom RECORDs can implement
+PUBLIC TYPE I_sDAdynInitDA INTERFACE
+  initDA(sdi I_SingleTableDA, d ui.Dialog) RETURNS()
+END INTERFACE
+
 PUBLIC TYPE I_sDAdynOnDAEvent INTERFACE
   onDAevent(d ui.Dialog, row INT, event STRING) RETURNS()
 END INTERFACE
@@ -89,6 +94,7 @@ TYPE T_SingleTableDA RECORD
     name STRING, -- a column name
     value STRING
   END RECORD,
+  rowBounds DYNAMIC ARRAY OF STRING,
   browseFormTextOrig STRING
 END RECORD
 
@@ -97,24 +103,13 @@ TYPE T_fields DYNAMIC ARRAY OF RECORD
   type STRING -- a column type
 END RECORD
 
-PRIVATE FUNCTION implementsIF(
-  el reflect.Value, ifval reflect.Value)
-  RETURNS BOOLEAN
-  IF el IS NULL THEN
-    RETURN FALSE
-  END IF
-  MYASSERT(ifval IS NOT NULL)
-  IF ifval.getType().isAssignableFrom(el.getType()) THEN
-    CALL ifval.set(el)
-    RETURN TRUE
-  END IF
-  RETURN FALSE
-END FUNCTION
-
+--hides/shows some build in actions and the custom
+--row bound actions
 FUNCTION (self T_SingleTableDA)
-  checkUpdateDelete(
+  checkRowBoundActions(
   d ui.Dialog, arrval reflect.Value)
   DEFINE empty BOOLEAN
+  DEFINE i INT
   LET empty = arrval.getLength() == 0
   IF self.o.hasUpdate THEN
     CALL d.setActionHidden("update", empty)
@@ -122,6 +117,10 @@ FUNCTION (self T_SingleTableDA)
   IF self.o.hasDelete THEN
     CALL d.setActionHidden("delete", empty)
   END IF
+  FOR i=1 TO self.rowBounds.getLength()
+    CALL d.setActionHidden(self.rowBounds[i],empty)
+    CALL d.setActionActive(self.rowBounds[i],NOT empty)
+  END FOR
 END FUNCTION
 
 PRIVATE FUNCTION (self T_SingleTableDA) getSQLFilterBase() RETURNS STRING
@@ -132,10 +131,24 @@ PRIVATE FUNCTION (self T_SingleTableDA) getSQLFilterBase() RETURNS STRING
   RETURN (sqlFilterBase)
 END FUNCTION
 
+FUNCTION (self T_SingleTableDA) addOnActionRowBound(d ui.Dialog, actionName STRING)
+  UNUSED(self)
+  CALL self.addOnAction(d, actionName)
+  --ensure the function is only called in the DISPLAY ARRAY context
+  MYASSERT(self.dlgDA==d)
+  LET self.rowBounds[self.rowBounds.getLength()+1]=actionName
+END FUNCTION
+
 FUNCTION (self T_SingleTableDA) addOnAction(d ui.Dialog, actionName STRING)
   UNUSED(self)
   MYASSERT(actionName IS NOT NULL)
   CALL d.addTrigger(C_ON_ACTION || " " || actionName)
+END FUNCTION
+
+FUNCTION checkInterface(s T_SingleTableDA)
+  DEFINE i1 I_SingleTableDA
+  MYASSERT(FALSE)
+  LET i1=s
 END FUNCTION
 
 FUNCTION actionFromEvent(event STRING) RETURNS STRING
@@ -157,10 +170,10 @@ END FUNCTION
 &define REFVAL(x) reflect.Value.valueOf(x)
 
 FUNCTION (self T_SingleTableDA) browseArray() RETURNS()
-  DEFINE event, ans, sql STRING
+  DEFINE event, ans, sql,rec STRING
   DEFINE d ui.Dialog
   DEFINE done, filterActive, hasWherePart BOOLEAN
-  DEFINE arrval reflect.Value
+  DEFINE arrval,el reflect.Value
   DEFINE trec reflect.Type
   DEFINE fields T_fields
   DEFINE row, winId INT
@@ -169,12 +182,14 @@ FUNCTION (self T_SingleTableDA) browseArray() RETURNS()
   DEFINE ifvarBR I_sDAdynBeforeRow
   DEFINE ifvarAR I_sDAdynAfterRow
   DEFINE ifvarOA I_sDAdynOnActionInDA
+  DEFINE ifvarDA I_sDAdynInitDA
   LET arrval = self.o.arrayValue
   LET trec = arrval.getType().getElementType()
   MYASSERT(trec.getKind() == "RECORD")
   MYASSERT(self.o.sqlAll IS NOT NULL)
   CALL describeFields(trec, fields)
   LET winId = utils.openDynamicWindow(self.o.browseForm)
+  LET rec=self.o.browseRecord
   --we need to store the original form text
   --because fgl_settitle changes the form text too
   LET self.browseFormTextOrig = utils.getFormTitle()
@@ -226,9 +241,10 @@ FUNCTION (self T_SingleTableDA) browseArray() RETURNS()
       CONTINUE WHILE
     END IF
     CALL self.setBrowseTitle(filterActive)
-    LET d = ui.Dialog.createDisplayArrayTo(fields, self.o.browseRecord)
+    CALL self.rowBounds.clear()
+    LET d = ui.Dialog.createDisplayArrayTo(fields, rec)
     LET self.dlgDA = d
-    CALL d.setArrayLength(self.o.browseRecord, arrval.getLength())
+    CALL d.setArrayLength(rec, arrval.getLength())
     CALL d.addTrigger("ON ACTION Exit")
     IF self.o.hasUpdate THEN
       CALL d.addTrigger("ON UPDATE")
@@ -239,7 +255,6 @@ FUNCTION (self T_SingleTableDA) browseArray() RETURNS()
     IF self.o.hasDelete THEN
       CALL d.addTrigger("ON DELETE")
     END IF
-    CALL self.checkUpdateDelete(d, arrval)
     --CALL d.addTrigger("ON FILL BUFFER")
     IF self.o.hasFilter THEN
       CALL d.addTrigger("ON ACTION filter")
@@ -249,11 +264,16 @@ FUNCTION (self T_SingleTableDA) browseArray() RETURNS()
         CALL d.setActionText("clear_filter", "Clear Filter")
       END IF
     END IF
-    CALL setArrayData(d, self.o.browseRecord, arrval)
+    CALL setArrayData(d, rec, arrval)
     --call back the custom function for initial add on's of the DISPLAY ARRAY
     IF self.o.initDA IS NOT NULL THEN
       CALL self.o.initDA(self, d)
     END IF
+    IF self.o.delegateDA.canAssignToVariable(ifvarDA) THEN
+      CALL self.o.delegateDA.assignToVariable(ifvarDA)
+      CALL ifvarDA.initDA(self, d)
+    END IF
+    CALL self.checkRowBoundActions(d, arrval)
 
     WHILE TRUE -- event loop for dialog d
       LET event = d.nextEvent()
@@ -263,27 +283,32 @@ FUNCTION (self T_SingleTableDA) browseArray() RETURNS()
           LET done = TRUE
           EXIT WHILE
         WHEN event = "BEFORE ROW"
-          LET row = d.getCurrentRow(self.o.browseRecord)
-          IF implementsIF(self.o.delegateDA, REFVAL(ifvarBR)) THEN
+          LET row = d.getCurrentRow(rec)
+          IF self.o.delegateDA.canAssignToVariable(ifvarBR) THEN
+            CALL self.o.delegateDA.assignToVariable(ifvarBR)
             CALL ifvarBR.BeforeRow(d, row)
           END IF
           IF row > 0 THEN
             MYASSERT(row > 0 AND row <= arrval.getLength())
-            IF implementsIF(arrval.getArrayElement(row), REFVAL(ifvarBR)) THEN
+            LET el=arrval.getArrayElement(row)
+            IF el.canAssignToVariable(ifvarBR) THEN
+              CALL el.assignToVariable(ifvarBR)
               CALL ifvarBR.BeforeRow(d, row)
             END IF
           END IF
         WHEN event = "AFTER ROW"
-          LET row = d.getCurrentRow(self.o.browseRecord)
+          LET row = d.getCurrentRow(rec)
           DISPLAY "after row:", row
           IF row > 0 THEN
             MYASSERT(row > 0 AND row <= arrval.getLength())
-            IF implementsIF(arrval.getArrayElement(row), REFVAL(ifvarAR)) THEN
+            LET el=arrval.getArrayElement(row)
+            IF el.canAssignToVariable(ifvarAR) THEN
+              CALL el.assignToVariable(ifvarAR)
               CALL ifvarAR.AfterRow(d, row)
             END IF
           END IF
         WHEN event = "ON UPDATE"
-          LET row = d.getCurrentRow(self.o.browseRecord)
+          LET row = d.getCurrentRow(rec)
           CALL self.inputRow(d, fields, arrval.getArrayElement(row), "Update")
           CALL self.setBrowseTitle(filterActive)
         WHEN event = "ON APPEND"
@@ -294,14 +319,18 @@ FUNCTION (self T_SingleTableDA) browseArray() RETURNS()
           IF int_flag THEN
             CALL arrval.deleteArrayElement(row)
           END IF
-          CALL self.checkUpdateDelete(d, arrval)
+          DISPLAY "dlg len:",d.getArrayLength(rec),",arrlen:",arrval.getLength(),",curr:",d.getCurrentRow(rec)
+
+          CALL self.checkRowBoundActions(d, arrval)
           CALL self.setBrowseTitle(filterActive)
         WHEN event = "ON DELETE"
-          LET row = d.getCurrentRow(self.o.browseRecord)
+          LET row = d.getCurrentRow(rec)
           LET int_flag = FALSE
-          MYASSERT(row > 0 AND row < arrval.getLength())
-          IF implementsIF(arrval.getArrayElement(row), REFVAL(ifvarDelRow)) THEN
-            CALL ifvarDelRow.DeleteRow(d: d, row: row)
+          MYASSERT(row > 0 AND row <= arrval.getLength())
+          LET el=arrval.getArrayElement(row)
+          IF el.canAssignToVariable(ifvarDelRow) THEN
+            CALL el.assignToVariable(ifvarDelRow)
+            CALL ifvarDelRow.DeleteRow(d, row)
           END IF
           IF NOT int_flag THEN
             IF fgldialog.fgl_winQuestion(
@@ -318,7 +347,7 @@ FUNCTION (self T_SingleTableDA) browseArray() RETURNS()
               LET int_flag = TRUE
             END IF
           END IF
-          CALL self.checkUpdateDelete(d, arrval)
+          CALL self.checkRowBoundActions(d, arrval)
         WHEN event = "ON ACTION filter"
           LET filterActive = TRUE
           EXIT WHILE -- restarts the dialog d
@@ -328,21 +357,26 @@ FUNCTION (self T_SingleTableDA) browseArray() RETURNS()
         WHEN event = "AFTER DISPLAY"
           EXIT WHILE
         WHEN event.getIndexOf(C_ON_ACTION, 1) = 1
-          LET row = d.getCurrentRow(self.o.browseRecord)
+          LET row = d.getCurrentRow(rec)
           --Call action trigger for the delegateDA if present
-          IF implementsIF(self.o.delegateDA, REFVAL(ifvarOA)) THEN
-            CALL ifvarOA.OnActionInDA(actionFromEvent(event), row)
+          IF self.o.delegateDA.canAssignToVariable(ifvarAR) THEN
+             CALL self.o.delegateDA.assignToVariable(ifvarAR)
+             CALL ifvarOA.OnActionInDA(actionFromEvent(event), row)
           END IF
           IF row > 0 AND row <= arrval.getLength() THEN
             --CALL action trigger for the record element if present
-            IF implementsIF(arrval.getArrayElement(row), REFVAL(ifvarOA)) THEN
+            LET el=arrval.getArrayElement(row)
+            IF el.canAssignToVariable(ifvarOA) THEN
+              CALL el.assignToVariable(ifvarOA)
               CALL ifvarOA.OnActionInDA(actionFromEvent(event), row)
             END IF
           END IF
         OTHERWISE
-          LET row = d.getCurrentRow(self.o.browseRecord)
+          LET row = d.getCurrentRow(rec)
           IF row > 0 AND row <= arrval.getLength() THEN
-            IF implementsIF(arrval.getArrayElement(row), REFVAL(ifvarOE)) THEN
+            LET el=arrval.getArrayElement(row)
+            IF el.canAssignToVariable(ifvarOE) THEN
+              CALL el.assignToVariable(ifvarOE)
               CALL ifvarOE.onDAevent(d, row, event)
             END IF
           END IF
@@ -512,7 +546,8 @@ PRIVATE FUNCTION (self T_SingleTableDA)
   END FOR
   --call back the init method in INPUT
   --there one can add custom actions, hide fields etc
-  IF implementsIF(recordVal, REFVAL(ifvarII)) THEN
+  IF recordVal.canAssignToVariable(ifvarII) THEN
+    CALL recordVal.assignToVariable(ifvarII)
     CALL ifvarII.initINPUT(self, d)
   END IF
 
@@ -524,13 +559,15 @@ PRIVATE FUNCTION (self T_SingleTableDA)
       WHEN ev.getIndexOf(C_BEFORE_FIELD, 1) = 1
         MYASSERT(curr.getLength() > 0)
         LET oldValue = d.getFieldValue(curr)
-        IF implementsIF(recordVal, REFVAL(ifvarBF)) THEN
+        IF recordVal.canAssignToVariable(ifvarBF) THEN
+          CALL recordVal.assignToVariable(ifvarBF)
           CALL ifvarBF.BeforeField(d, curr)
         END IF
         CONTINUE WHILE
       WHEN ev.getIndexOf(C_AFTER_FIELD, 1) = 1
         --after field: we copy the dialog value into the fields value
-        IF implementsIF(recordVal, REFVAL(ifvarAF)) THEN
+        IF recordVal.canAssignToVariable(ifvarAF) THEN
+          CALL recordVal.assignToVariable(ifvarAF)
           MYASSERT(curr.getLength() > 0)
           LET fv = utils.getReflectFieldByName(recordVal, curr)
           MYASSERT(fv IS NOT NULL)
@@ -545,12 +582,13 @@ PRIVATE FUNCTION (self T_SingleTableDA)
         END IF
         CONTINUE WHILE
       WHEN ev.getIndexOf(C_ON_ACTION, 1) = 1
-        IF implementsIF(recordVal, REFVAL(ifvarOA)) THEN
+        IF recordVal.canAssignToVariable(ifvarOA) THEN
+          CALL recordVal.assignToVariable(ifvarOA)
           CALL ifvarOA.OnActionInINPUT(d, actionFromEvent(ev))
         END IF
       OTHERWISE --pass any other event the onINPUTevent function
-        IF implementsIF(recordVal, REFVAL(ifvarIE)) THEN
-
+        IF recordVal.canAssignToVariable(ifvarIE) THEN
+          CALL recordVal.assignToVariable(ifvarIE)
           CALL ifvarIE.onINPUTevent(
               d,
               ev,
@@ -586,7 +624,8 @@ PRIVATE FUNCTION (self T_SingleTableDA)
       CALL fv.set(value)
       CALL da.setFieldValue(name, d.getFieldValue(fields[i].name))
     END FOR
-    IF implementsIF(recordVal, REFVAL(ifvarIU)) THEN
+    IF recordVal.canAssignToVariable(ifvarIU) THEN
+      CALL recordVal.assignToVariable(ifvarIU)
       CALL ifvarIU.insertOrUpdate(title == "Update")
     END IF
   END IF
