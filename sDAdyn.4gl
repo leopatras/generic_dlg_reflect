@@ -11,8 +11,8 @@ PUBLIC TYPE I_InitDA INTERFACE
   InitDA(sdi I_SingleTableDA, d ui.Dialog) RETURNS()
 END INTERFACE
 
-PUBLIC TYPE I_OnDAEvent INTERFACE
-  OnDAevent(d ui.Dialog, row INT, event STRING) RETURNS()
+PUBLIC TYPE I_OnEventInDA INTERFACE
+  OnEventInDA(d ui.Dialog, row INT, event STRING) RETURNS()
 END INTERFACE
 
 PUBLIC TYPE I_BeforeRow INTERFACE
@@ -47,14 +47,14 @@ PUBLIC TYPE I_OnActionInInput INTERFACE
   OnActionInINPUT(d ui.Dialog, actionName STRING) RETURNS()
 END INTERFACE
 
-PUBLIC TYPE I_OnInputEvent INTERFACE
-  OnINPUTevent(
+PUBLIC TYPE I_OnEventInINPUT INTERFACE
+  OnEventInINPUT(
     d ui.Dialog, ev STRING, fieldName STRING, value STRING)
     RETURNS(BOOLEAN, STRING)
 END INTERFACE
 
-PUBLIC TYPE I_InsertUpdate INTERFACE
-  insertOrUpdate(update BOOLEAN) RETURNS()
+PUBLIC TYPE I_InsertOrUpdate INTERFACE
+  InsertOrUpdate(update BOOLEAN) RETURNS()
 END INTERFACE
 
 --define the public settable members of the
@@ -150,10 +150,10 @@ FUNCTION (self TM_SingleTableDA) addOnAction(d ui.Dialog, actionName STRING)
   CALL d.addTrigger(C_ON_ACTION || " " || actionName)
 END FUNCTION
 
-FUNCTION checkInterface(s TM_SingleTableDA)
+FUNCTION (self TM_SingleTableDA)checkInterfaces()
   DEFINE i1 I_SingleTableDA
   MYASSERT(FALSE)
-  LET i1 = s
+  LET i1 = self
 END FUNCTION
 
 FUNCTION actionFromEvent(event STRING) RETURNS STRING
@@ -187,7 +187,7 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
   DEFINE trec reflect.Type
   DEFINE fields T_fields
   DEFINE row, winId INT
-  DEFINE ifvarOE I_OnDAEvent
+  DEFINE ifvarOE I_OnEventInDA
   DEFINE ifvarDelRow I_DeleteRow
   DEFINE ifvarBR I_BeforeRow
   DEFINE ifvarAR I_AfterRow
@@ -389,7 +389,7 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
           LET row = d.getCurrentRow(rec)
           IF self.o.delegateDA.canAssignToVariable(ifvarOE) THEN
             CALL self.o.delegateDA.assignToVariable(ifvarOE)
-            CALL ifvarOE.OnDAevent(d, row, event)
+            CALL ifvarOE.OnEventInDA(d, row, event)
           END IF
       END CASE
     END WHILE
@@ -533,9 +533,9 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
   DEFINE ifvarII I_InitInput
   DEFINE ifvarBF I_BeforeField
   DEFINE ifvarAF I_AfterField
-  DEFINE ifvarIU I_InsertUpdate
+  DEFINE ifvarIU I_InsertOrUpdate
   DEFINE ifvarOA I_OnActionInInput
-  DEFINE ifvarIE I_OnInputEvent
+  DEFINE ifvarIE I_OnEventInINPUT
   DEFINE fv, value reflect.Value
   --DEFINE trec reflect.Type
   IF self.o.inputForm.getLength() > 0 THEN
@@ -600,10 +600,10 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
           CALL recordVal.assignToVariable(ifvarOA)
           CALL ifvarOA.OnActionInINPUT(d, actionFromEvent(ev))
         END IF
-      OTHERWISE --pass any other event to the OnINPUTevent function
+      OTHERWISE --pass any other event to the OnEventInINPUT function
         IF recordVal.canAssignToVariable(ifvarIE) THEN
           CALL recordVal.assignToVariable(ifvarIE)
-          CALL ifvarIE.OnINPUTevent(
+          CALL ifvarIE.OnEventInINPUT(
               d,
               ev,
               curr,
@@ -640,7 +640,7 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
     END FOR
     IF recordVal.canAssignToVariable(ifvarIU) THEN
       CALL recordVal.assignToVariable(ifvarIU)
-      CALL ifvarIU.insertOrUpdate(title == "Update")
+      CALL ifvarIU.InsertOrUpdate(title == "Update")
     END IF
   END IF
   --TODO SQL errors ?
