@@ -16,10 +16,7 @@ END RECORD
 
 CONSTANT SHOW_CUSTOMER = "show_customer"
 
-FUNCTION (self TM_orders)
-  InitDA(
-  sdi sDAdyn.I_SingleTableDA, d ui.Dialog)
-  RETURNS()
+FUNCTION (self TM_orders) InitDA(sdi I_SingleTableDA, d ui.Dialog)
   DISPLAY "TM_orders InitDA :", self.browseOrders
   IF self.browseOrders THEN
     CALL sdi.addOnActionRowBound(d, SHOW_CUSTOMER)
@@ -27,11 +24,7 @@ FUNCTION (self TM_orders)
   END IF
 END FUNCTION
 
-FUNCTION (self TM_orders)
-  OnActionInDA(
-  actionName STRING, row INT)
-  RETURNS()
-
+FUNCTION (self TM_orders) OnActionInDA(actionName STRING, row INT)
   --custom action always triggers here
   DISPLAY SFMT("ordersWithMethods OnActionInDA actionName:'%1',row:%2",
     actionName, row)
@@ -48,15 +41,13 @@ FUNCTION (self TM_orders)
   END IF
 END FUNCTION
 
-FUNCTION checkInterfaces(d TM_orders INOUT)
+FUNCTION (self TM_orders) checkInterfaces()
   --surrounds the missing IMPLEMENTS with a compiler check
   DEFINE iDA I_InitDA
-  DEFINE iOAD I_OnActionInDA
+  DEFINE iOA I_OnActionInDA
   MYASSERT(FALSE)
-  LET iDA =
-    d --the compiler checks here if TM_orders implements I_InitDA
-  LET iOAD =
-    d --the compiler checks here if TM_orders implements I_sDAdynOnActionInDA
+  LET iDA = self --the compiler checks if TM_orders implements I_InitDA
+  LET iOA = self --the compiler checks if TM_orders implements I_OnActionInDA
 END FUNCTION
 --} End TM_orders
 
@@ -93,4 +84,3 @@ FUNCTION MAIN()
   CALL utils.dbconnect()
   CALL showOrders(-1, "", "")
 END FUNCTION
-
