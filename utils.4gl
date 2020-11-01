@@ -1,12 +1,28 @@
+OPTIONS
+SHORT CIRCUIT
 &include "myassert.inc"
 IMPORT reflect
+IMPORT util
+IMPORT os
 PUBLIC CONSTANT C_AFTER_FIELD = "AFTER FIELD"
 PUBLIC CONSTANT C_BEFORE_FIELD = "BEFORE FIELD"
 PUBLIC CONSTANT C_ON_ACTION = "ON ACTION"
 PUBLIC CONSTANT C_BEFORE_ROW = "BEFORE ROW"
 PUBLIC CONSTANT C_AFTER_ROW = "AFTER ROW"
+
+PUBLIC TYPE T_STRINGARR DYNAMIC ARRAY OF STRING
+--PUBLIC TYPE T_STRINGDICT DICTIONARY OF STRING
+PUBLIC TYPE T_INT_DICT DICTIONARY OF STRING
+
 DEFINE mShowStack BOOLEAN
 DEFINE mWindows ARRAY[10] OF BOOLEAN
+
+MAIN
+  DEFINE d T_INT_DICT
+  LET d = readNamesFromScreenRecord("scr", "customers_singlerow.42f", TRUE)
+  --LET d = readNamesFromScreenRecord("scr", "customers.42f",TRUE)
+  DISPLAY util.JSON.stringify(d)
+END MAIN
 
 FUNCTION myerrAndStackTrace(errstr STRING)
   LET mShowStack = TRUE
@@ -150,12 +166,14 @@ FUNCTION copyRecord(src reflect.Value, dest reflect.Value)
   LET tdst = dest.getType()
   MYASSERT(tsrc.getKind() == "RECORD")
   MYASSERT(tdst.getKind() == "RECORD")
+  {
   IF tdst.isAssignableFrom(tsrc) THEN
     --both src and dest have the *same* RECORD type:
     --you should rather use a direct RECORD assignment
     CALL myerrAndStackTrace(
       "RECORD types match: use a direct RECORD assignment instead(performance)")
   END IF
+  }
   --number of elements must be equal
   MYASSERT(tsrc.getFieldCount() == tdst.getFieldCount())
   LET cnt = tsrc.getFieldCount()
@@ -338,6 +356,140 @@ END FUNCTION
 
 FUNCTION getFormTitle() RETURNS STRING
   RETURN ui.Window.getCurrent().getForm().getNode().getAttribute("text")
+END FUNCTION
+
+FUNCTION changeFileExtension(fname, newExt)
+  DEFINE fname, ext, newExt STRING
+  LET ext = os.Path.extension(fname)
+  LET fname = fname.subString(1, fname.getLength() - ext.getLength()), newExt
+  RETURN fname
+END FUNCTION
+
+FUNCTION append42f(fname STRING) RETURNS STRING
+  DEFINE f42f STRING
+  IF os.Path.extension(fname).getLength() == 0 THEN
+    LET f42f = fname, ".42f"
+  ELSE
+    LET f42f = changeFileExtension(fname, "42f")
+  END IF
+  DISPLAY "f42f:", f42f
+  RETURN f42f
+END FUNCTION
+
+--unfortunately there is no ui.XX function to retrieve
+--complete information about screen record member names
+--so we need eventually to open the .42f file and scan a bit the DOM
+--if qualified is set, the returned names are "tableName.columnName"
+FUNCTION readNamesFromScreenRecord(
+  screenRec STRING, f42f STRING, qualified BOOLEAN)
+  RETURNS T_INT_DICT
+  DEFINE doc om.DomDocument
+  DEFINE root, t, tc, rv, link om.DomNode
+  DEFINE l om.NodeList
+  DEFINE i INT
+  DEFINE name, fieldId STRING
+  DEFINE win ui.Window
+  DEFINE frmO ui.Form
+  DEFINE dict T_INT_DICT
+  DEFINE fieldIdDict DICTIONARY OF STRING
+  MYASSERT(screenRec IS NOT NULL)
+  IF (win := ui.Window.getCurrent()) IS NULL
+    OR (frmO := win.getForm()) IS NULL THEN
+    MYASSERT((doc := om.DomDocument.createFromXmlFile(f42f)) IS NOT NULL)
+    LET root = doc.getDocumentElement()
+  ELSE
+    LET root = frmO.getNode()
+  END IF
+  --first search: Table
+  LET l = root.selectByPath(SFMT('//Table[@tabName="%1"]', screenRec))
+  IF l.getLength() == 1 THEN
+    LET t = l.item(1)
+    LET l = t.selectByTagName("TableColumn")
+    FOR i = 1 TO l.getLength()
+      LET tc = l.item(i)
+      LET name =
+        IIF(qualified, tc.getAttribute("name"), tc.getAttribute("colName"))
+      LET dict[name] = i
+    END FOR
+    RETURN dict
+  END IF
+  --2nd search: RecordView..we need the .42f
+  IF doc IS NULL THEN
+    MYASSERT((doc := om.DomDocument.createFromXmlFile(f42f)) IS NOT NULL)
+    LET root = doc.getDocumentElement()
+  END IF
+  IF qualified THEN
+    LET fieldIdDict = getFieldIds(root)
+    DISPLAY "fieldIdDict:", util.JSON.stringify(fieldIdDict)
+  END IF
+  LET l = root.selectByPath(SFMT('//RecordView[@tabName="%1"]', screenRec))
+  IF l.getLength() == 0 THEN
+    CALL myerrAndStackTrace(
+      SFMT("Can't find screen record '%1' in '%2'", screenRec, f42f))
+  END IF
+  LET rv = l.item(1)
+  LET l = rv.selectByTagName("Link")
+  FOR i = 1 TO l.getLength()
+    LET link = l.item(i)
+    IF qualified THEN
+      LET fieldId = link.getAttribute("fieldIdRef")
+      LET name = fieldIdDict[fieldId]
+    ELSE
+      LET name = link.getAttribute("colName")
+    END IF
+    MYASSERT(name IS NOT NULL)
+    LET dict[name] = i
+  END FOR
+  RETURN dict
+END FUNCTION
+
+PRIVATE FUNCTION addFieldNamesToDict(
+  dict T_INT_DICT, root om.DomNode, tagName STRING, qualified BOOLEAN)
+  DEFINE l om.NodeList
+  DEFINE node om.DomNode
+  DEFINE name STRING
+  DEFINE i, len INT
+  LET l = root.selectByTagName(tagName)
+  LET len = l.getLength()
+  FOR i = 1 TO len
+    LET node=l.item(i)
+    LET name = IIF(qualified,node.getAttribute("name"),node.getAttribute("colName"))
+    LET dict[name] = dict.getLength()
+  END FOR
+END FUNCTION
+
+PRIVATE FUNCTION addFullNamesByFieldId(
+  dict DICTIONARY OF STRING, root om.DomNode, tagName STRING)
+  DEFINE l om.NodeList
+  DEFINE node om.DomNode
+  DEFINE name, fieldId STRING
+  DEFINE i, len INT
+  LET l = root.selectByTagName(tagName)
+  LET len = l.getLength()
+  FOR i = 1 TO len
+    LET node = l.item(i)
+    LET name = node.getAttribute("name")
+    LET fieldId = node.getAttribute("fieldId")
+    LET dict[fieldId] = name
+  END FOR
+END FUNCTION
+
+PRIVATE FUNCTION getFieldIds(root om.DomNode) RETURNS(DICTIONARY OF STRING)
+  DEFINE dict DICTIONARY OF STRING
+  CALL addFullNamesByFieldId(dict, root, "FormField")
+  CALL addFullNamesByFieldId(dict, root, "Matrix")
+  RETURN dict
+END FUNCTION
+
+--retrieves all inputtable fields in the current form
+FUNCTION getInputColNames(qualified BOOLEAN) RETURNS T_INT_DICT
+  DEFINE dict T_INT_DICT
+  DEFINE root om.DomNode
+  LET root = ui.Window.getCurrent().getForm().getNode()
+  CALL addFieldNamesToDict(dict, root, "TableColumn",qualified)
+  CALL addFieldNamesToDict(dict, root, "FormField",qualified)
+  CALL addFieldNamesToDict(dict, root, "Matrix",qualified)
+  RETURN dict
 END FUNCTION
 
 --really not nice, but not a road block

@@ -3,28 +3,28 @@ DATABASE stores
 LAYOUT (TEXT = "Customers")
 TABLE(HEIGHT=15 LINES)
 {
- Number       First Name    Last Name  Company    Address1  Address2   City  State  Zip Code  Phone
-[f000        |f001        |f002       |f003     | f004     |f005     | f006 | a0   | f007    | f008 ]
+ Num   First Name    Last Name  Phone      Address1  Address2   City  State  Zip Code  Company
+[f000][f001        |f002       |f003     | f004     |f005     | f006 | a0   | f007    | f008  ]
 }
 END END
 
 TABLES
-customer
+--"cust" is an alias to the customer table
+cust=customer
 
 ATTRIBUTES
 
-
-f000 = customer.customer_num, NOENTRY;
-f001 = customer.fname;
-f002 = customer.lname;
-f003 = customer.company;
-f004 = customer.address1;
-f005 = customer.address2;
-f006 = customer.city;
-BUTTONEDIT a0 = customer.state, UPSHIFT, NOTEDITABLE, ACTION=zoom;
-f007 = customer.zipcode;
-EDIT f008 = customer.phone;--, PICTURE = "###-###-#### XXXXX";
+f000 = cust.customer_num;
+f001 = cust.fname;
+f002 = cust.lname;
+f003 = cust.phone;
+f004 = cust.address1;
+f005 = cust.address2;
+f006 = cust.city;
+BUTTONEDIT a0 = cust.state, UPSHIFT, NOTEDITABLE, ACTION=zoom;
+f007 = cust.zipcode;
+EDIT f008 = cust.company;--, PICTURE = "###-###-#### XXXXX";
 
 
 INSTRUCTIONS
-SCREEN RECORD scr(customer.customer_num THRU customer.phone)
+SCREEN RECORD scr(cust.*)

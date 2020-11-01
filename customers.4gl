@@ -8,13 +8,16 @@ SCHEMA stores
 --the 'TM_' prefix indicates: this type has Methods
 --vs the 'T_' prefix : this type doesn't have Methods
 --{ Begin TM_customer
-TYPE TM_customer RECORD LIKE customer.* --TODO: add IMPLEMENTS
+TYPE TM_customer RECORD --TODO: add IMPLEMENTS
+    cust RECORD LIKE customer.*,
+    flagNotUsed BOOLEAN --for ex:usage in dialog
+END RECORD
 
 --method called by the browseArray function
 --whenever a BEFORE ROW of a valid row (row>0 AND row<array.getLength()) is triggered
 FUNCTION (self TM_customer) BeforeRow(d ui.Dialog, row INT) RETURNS()
   DISPLAY SFMT("customer BeforeRow:%1", row)
-  CALL checkOrders(d, self.customer_num)
+  CALL checkOrders(d, self.cust.customer_num)
 END FUNCTION
 
 PRIVATE FUNCTION count_orders(customer_num LIKE customer.customer_num)
@@ -43,7 +46,7 @@ FUNCTION (self TM_customer) OnActionInDA(actionName STRING, row INT) RETURNS()
   DISPLAY SFMT("OnActionInDA actionName:'%1',row:%2", actionName, row)
   CASE actionName
     WHEN SHOW_ORDERS
-      CALL orders.showOrders(self.customer_num, self.fname, self.lname)
+      CALL orders.showOrders(self.cust.customer_num, self.cust.fname, self.cust.lname)
     OTHERWISE
       DISPLAY "actionName:'", actionName, "' not handled"
   END CASE
@@ -97,8 +100,8 @@ FUNCTION (self TM_customer)
   DISPLAY SFMT("AFTER FIELD field:%1 value:%2 oldValue:%3",
     fieldName, d.getFieldValue(fieldName), oldValue)
   CASE
-    WHEN fieldName == "zipcode" AND LENGTH(self.zipcode) <> 5
-      DISPLAY "zipcode:'", self.zipcode, "'"
+    WHEN fieldName == "cust.zipcode" AND LENGTH(self.cust.zipcode) <> 5
+      DISPLAY "zipcode:'", self.cust.zipcode, "'"
       RETURN "Zipcode must have 5 digits"
   END CASE
   RETURN NULL --NULL means: no error
@@ -120,10 +123,11 @@ END FUNCTION
 FUNCTION (self TM_customer) InsertOrUpdate(update BOOLEAN)
   IF update THEN
     UPDATE customer
-      SET customer.* = self.*
-      WHERE @customer_num = self.customer_num
+      SET customer.* = self.cust.*
+      WHERE @customer_num = self.cust.customer_num
   ELSE
-    INSERT INTO customer VALUES self.*
+    INSERT INTO customer VALUES self.cust.*
+    LET self.cust.customer_num = sqlca.sqlerrd[2]
   END IF
 END FUNCTION
 
@@ -131,11 +135,11 @@ FUNCTION (self TM_customer) DeleteRow(d ui.Dialog, row INT) RETURNS()
   UNUSED(self)
   UNUSED(d)
   DISPLAY SFMT("customer DeleteRow:%1", row)
-  DELETE FROM customer WHERE @customer_num = self.customer_num
+  DELETE FROM customer WHERE @customer_num = self.cust.customer_num
 END FUNCTION
 
 FUNCTION (self TM_customer) checkInterfaces()
-  --surrounds the missing IMPLEMENTS with a compiler check
+  --dummy func to enable a compiler check until IMPLEMENTS is there
   DEFINE iAR I_AfterRow
   DEFINE iBR I_BeforeRow
   DEFINE iDR I_DeleteRow
@@ -162,7 +166,7 @@ END FUNCTION
 --{ Begin TM_customers
 --we can't have ARRAY's with methods...but
 --we can define a RECORD...
-TYPE TM_customers RECORD --TODO: add IMPLEMENTS
+TYPE TM_customers RECORD --TODO IMPLEMENTS I_BeforeRow,
   c_arr DYNAMIC ARRAY OF TM_customer --..and have the data array 'c_arr' as a member
 END RECORD
 
@@ -196,10 +200,10 @@ END FUNCTION
 
 --method called by the browseArray function
 --on *each* BEFORE ROW of the DISPLAY ARRAY (row may be 0)
-FUNCTION (self TM_customers) BeforeRow(d ui.Dialog, row INT) RETURNS()
+FUNCTION (self TM_customers) BeforeRow(d ui.Dialog,row INT)
   UNUSED(self)
   UNUSED(d)
-  DISPLAY SFMT("customersWithMethods BeforeRow:%1", row)
+  DISPLAY SFMT("TM_customers BeforeRow:%1", row)
 END FUNCTION
 
 FUNCTION (self TM_customers) checkInterfaces()
@@ -232,9 +236,14 @@ END FUNCTION
 FUNCTION MAIN()
   DEFINE d TM_customers
   DEFINE opts sDAdyn.T_SingleTableDAOptions =
-    (sqlAll: "SELECT * FROM CUSTOMER",
-      browseForm: "customers_singlerow",
+    (sqlAll: "SELECT * FROM CUSTOMER AS cust",
+      browseForm: "customers",
       browseRecord: "scr",
+      inputForm: "customers_singlerow",
+      filterForm: "customers_singlerow",
+      autoPhantom: TRUE, --tolerates missing FormFields/TableColumns in the forms
+      addClickableImages: TRUE,
+      qualifiedNames:TRUE,
       hasUpdate: TRUE,
       hasAppend: TRUE,
       hasDelete: TRUE,

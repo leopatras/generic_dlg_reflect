@@ -2,7 +2,7 @@
 	fglform -M $<
 
 %.42m: %.4gl 
-	fglcomp -r -M -Wall $*
+	fglcomp -r -M -Wall -Wno-stdsql $*
 
 MODULES = $(patsubst %.4gl, %.42m, $(wildcard *.4gl))
 FORMS   = $(patsubst %.per, %.42f, $(wildcard *.per))

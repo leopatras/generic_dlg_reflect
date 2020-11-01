@@ -27,28 +27,30 @@ GRID
 [City        ][f006                             ]
 [State       ][a0                               ]
 [Zipcode     ][f007                             ]
-[Telephone   ][f008                             ]
+              [xx ]
 
 
 }
 END END
+--[Telephone   ][f008                             ]
 
 TABLES
-customer
+cust=customer
 
 ATTRIBUTES
 
 
-f000 = customer.customer_num, NOENTRY;
-f001 = customer.fname;
-f002 = customer.lname;
-f003 = customer.company;
-f004 = customer.address1;
-f005 = customer.address2;
-f006 = customer.city;
-BUTTONEDIT a0 = customer.state, UPSHIFT, NOTEDITABLE, ACTION=zoom;
-f007 = customer.zipcode;
-EDIT f008 = customer.phone;--, PICTURE = "###-###-#### XXXXX";
+f000 = cust.customer_num, NOENTRY;
+f001 = cust.fname;
+f002 = cust.lname;
+f003 = cust.company;
+f004 = cust.address1;
+f005 = cust.address2;
+f006 = cust.city;
+BUTTONEDIT a0 = cust.state, UPSHIFT, NOTEDITABLE, ACTION=zoom;
+f007 = cust.zipcode;
+--EDIT f008 = cust.phone;--, PICTURE = "###-###-#### XXXXX";
+xx= FORMONLY.xx;
 
 LABEL Number : TEXT = %"Number";
 LABEL First_Name : TEXT = %"First Name";
@@ -59,7 +61,7 @@ LABEL Address2 : TEXT = %"Address2";
 LABEL City : TEXT = %"City";
 LABEL State : TEXT = %"State";
 LABEL Zipcode : TEXT = %"Zipcode";
-LABEL Telephone : TEXT = %"Telephone";
+--LABEL Telephone : TEXT = %"Telephone";
 
 INSTRUCTIONS
-SCREEN RECORD scr(customer.customer_num THRU customer.phone)
+SCREEN RECORD scr(cust.customer_num THRU cust.zipcode,FORMONLY.xx)

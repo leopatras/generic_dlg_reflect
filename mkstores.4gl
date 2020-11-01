@@ -40,6 +40,12 @@ FUNCTION createDatabase()
     )
     CREATE UNIQUE INDEX c_num_ix ON customer (customer_num)
     CREATE INDEX zip_ix ON customer (zipcode)
+    CREATE TABLE cust_ex
+    (
+     customer_num INTEGER,
+     comments CHAR(255)
+    )
+    CREATE INDEX cext_num_ix ON cust_ex (customer_num)
 
     CREATE TABLE orders
     (
@@ -101,6 +107,7 @@ FUNCTION createDatabase()
     LET appdir = NVL(fgl_getenv("FGLAPPDIR"), ".")
     BEGIN WORK
     LOAD FROM appdir || "/stores.exp/customer.unl" INSERT INTO CUSTOMER
+    LOAD FROM appdir || "/stores.exp/cust_ex.unl" INSERT INTO CUST_EX
     LOAD FROM appdir || "/stores.exp/items.unl" INSERT INTO ITEMS
     LOAD FROM appdir || "/stores.exp/manufact.unl" INSERT INTO MANUFACT
     LOAD FROM appdir || "/stores.exp/orders.unl" INSERT INTO ORDERS
@@ -109,3 +116,4 @@ FUNCTION createDatabase()
     COMMIT WORK
     DISCONNECT ALL
 END FUNCTION
+

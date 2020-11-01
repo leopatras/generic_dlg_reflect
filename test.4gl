@@ -41,6 +41,10 @@ MAIN
   LET t2 = t1
   MYASSERT(t2.fname = "Hans")
   MYASSERT(t2.lname = "Hansen")
+  INITIALIZE t2 TO NULL
+  CALL copyRecord(reflect.Value.valueOf(t1),reflect.Value.valueOf(t2))
+  MYASSERT(t2.fname = "Hans")
+  MYASSERT(t2.lname = "Hansen")
   LET t3 = t2 --this surprisingly works, reflection says no..so smells like
   --an inconsistency...a RECORD having no methods is assigned to
   --a RECORD having methods
