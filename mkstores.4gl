@@ -7,9 +7,18 @@
 # samples are accurate and suitable for your purposes. Their inclusion is
 # purely for information purposes only.
 
+DEFINE driver STRING
+
 MAIN
+    DISPLAY num_args()
+    IF num_args()>=1 THEN
+      LET driver=arg_val(1)
+    ELSE
+      LET driver="sqlite"
+    END IF
+    DISPLAY "mkstores with driver:",driver
     TRY
-        CONNECT TO "stores.dbs+driver='sqlite'"
+        CONNECT TO sfmt("stores.dbs+driver='%1'",driver)
         RETURN
     END TRY
     CALL createDatabase()
@@ -19,11 +28,11 @@ FUNCTION createDatabase()
     DEFINE appdir STRING
 
     TRY
-        CONNECT TO "stores.dbs+driver='sqlite'"
+        CONNECT TO sfmt("stores.dbs+driver='%1'",driver)
         RETURN
     END TRY
     CREATE DATABASE "stores.dbs"
-    CONNECT TO "stores.dbs+driver='sqlite'"
+    CONNECT TO sfmt("stores.dbs+driver='%1'",driver)
     
     CREATE TABLE customer
     (
@@ -104,6 +113,13 @@ FUNCTION createDatabase()
     )
     CREATE UNIQUE INDEX st_x1 ON state (code)
 
+    CREATE TABLE empty
+    (
+    empty_num SERIAL,
+    x CHAR(1),
+    xx CHAR(2)
+    )
+
     LET appdir = NVL(fgl_getenv("FGLAPPDIR"), ".")
     BEGIN WORK
     LOAD FROM appdir || "/stores.exp/customer.unl" INSERT INTO CUSTOMER
@@ -114,6 +130,9 @@ FUNCTION createDatabase()
     LOAD FROM appdir || "/stores.exp/state.unl" INSERT INTO STATE
     LOAD FROM appdir || "/stores.exp/stock.unl" INSERT INTO STOCK
     COMMIT WORK
+    RUN sfmt("fgldbsch -dv %1 -of stores -db stores.dbs",driver)
+    RUN "fglcomp convert_serials &&  fglrun  convert_serials"
+    --UNLOAD TO "items.unl" SELECT * FROM items
     DISCONNECT ALL
 END FUNCTION
 
