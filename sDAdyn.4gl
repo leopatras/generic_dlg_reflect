@@ -1,3 +1,4 @@
+OPTIONS SHORT CIRCUIT
 &include "myassert.inc"
 IMPORT reflect
 IMPORT util
@@ -56,6 +57,10 @@ END INTERFACE
 
 PUBLIC TYPE I_InsertOrUpdate INTERFACE
   InsertOrUpdate(update BOOLEAN) RETURNS()
+END INTERFACE
+
+PUBLIC TYPE I_InsertOrUpdateOfRow INTERFACE
+  InsertOrUpdateOfRow(update BOOLEAN,row INT) RETURNS()
 END INTERFACE
 
 --define the public settable members of the
@@ -206,7 +211,9 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
   DEFINE ifvarAR I_AfterRow
   DEFINE ifvarOA I_OnActionInDA
   DEFINE ifvarDA I_InitDA
+  DEFINE delegateDA reflect.Value
   LET arrval = self.o.arrayValue
+  LET delegateDA = self.o.delegateDA
   LET trec = arrval.getType().getElementType()
   MYASSERT(trec.getKind() == "RECORD")
   MYASSERT(self.o.sqlAll IS NOT NULL)
@@ -295,23 +302,23 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
     END IF
     CALL self.setArrayData(d, rec, arrval, trec, names)
     --call back the delegate for initial add on's of the DISPLAY ARRAY
-    IF self.o.delegateDA.canAssignToVariable(ifvarDA) THEN
-      CALL self.o.delegateDA.assignToVariable(ifvarDA)
+    IF delegateDA IS NOT NULL AND delegateDA.canAssignToVariable(ifvarDA) THEN
+      CALL delegateDA.assignToVariable(ifvarDA)
       CALL ifvarDA.InitDA(self, d)
     END IF
     CALL self.checkRowBoundActions(d, arrval)
 
     WHILE TRUE -- event loop for dialog d
       LET event = d.nextEvent()
-      --DISPLAY "here:", event
+      DISPLAY "here:", event
       CASE
         WHEN event = "ON ACTION Exit"
           LET done = TRUE
           EXIT WHILE
         WHEN event = "BEFORE ROW"
           LET row = d.getCurrentRow(rec)
-          IF self.o.delegateDA.canAssignToVariable(ifvarBR) THEN
-            CALL self.o.delegateDA.assignToVariable(ifvarBR)
+          IF delegateDA IS NOT NULL AND delegateDA.canAssignToVariable(ifvarBR) THEN
+            CALL delegateDA.assignToVariable(ifvarBR)
             CALL ifvarBR.BeforeRow(d, row)
           END IF
           IF row > 0 THEN
@@ -324,7 +331,10 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
           END IF
         WHEN event = "AFTER ROW"
           LET row = d.getCurrentRow(rec)
-          DISPLAY "after row:", row
+          IF delegateDA IS NOT NULL AND delegateDA.canAssignToVariable(ifvarAR) THEN
+            CALL delegateDA.assignToVariable(ifvarAR)
+            CALL ifvarAR.AfterRow(d, row)
+          END IF
           IF row > 0 THEN
             MYASSERT(row > 0 AND row <= arrval.getLength())
             LET el = arrval.getArrayElement(row)
@@ -352,8 +362,8 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
         WHEN event.getIndexOf(C_ON_ACTION, 1) = 1
           LET row = d.getCurrentRow(rec)
           --Call action trigger for the delegateDA if present
-          IF self.o.delegateDA.canAssignToVariable(ifvarAR) THEN
-            CALL self.o.delegateDA.assignToVariable(ifvarAR)
+          IF delegateDA IS NOT NULL AND delegateDA.canAssignToVariable(ifvarAR) THEN
+            CALL delegateDA.assignToVariable(ifvarAR)
             CALL ifvarOA.OnActionInDA(actionFromEvent(event), row)
           END IF
           IF row > 0 AND row <= arrval.getLength() THEN
@@ -366,8 +376,8 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
           END IF
         OTHERWISE
           LET row = d.getCurrentRow(rec)
-          IF self.o.delegateDA.canAssignToVariable(ifvarOE) THEN
-            CALL self.o.delegateDA.assignToVariable(ifvarOE)
+          IF delegateDA IS NOT NULL AND delegateDA.canAssignToVariable(ifvarOE) THEN
+            CALL delegateDA.assignToVariable(ifvarOE)
             CALL ifvarOE.OnEventInDA(d, row, event)
           END IF
       END CASE
@@ -906,12 +916,13 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
   DA ui.Dialog, recordVal reflect.Value, title STRING, browseNames T_INT_DICT)
   DEFINE ev, err, curr, oldValue STRING
   DEFINE d ui.Dialog
-  DEFINE winId INT
+  DEFINE winId,row INT
   DEFINE handled BOOLEAN
   DEFINE ifvarII I_InitInput
   DEFINE ifvarBF I_BeforeField
   DEFINE ifvarAF I_AfterField
   DEFINE ifvarIU I_InsertOrUpdate
+  DEFINE ifvarIURow I_InsertOrUpdateOfRow
   DEFINE ifvarOA I_OnActionInInput
   DEFINE ifvarIE I_OnEventInINPUT
   DEFINE names T_INT_DICT
@@ -1011,9 +1022,15 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
     IF recordVal.canAssignToVariable(ifvarIU) THEN
       CALL recordVal.assignToVariable(ifvarIU)
       CALL ifvarIU.InsertOrUpdate(title == "Update")
+      --TODO SQL errors
+    ELSE IF self.o.delegateDA IS NOT NULL AND self.o.delegateDA.canAssignToVariable(ifvarIURow) THEN
+      CALL self.o.delegateDA.assignToVariable(ifvarIURow)
+      LET row=DA.getCurrentRow(self.o.browseRecord)
+      CALL ifvarIURow.InsertOrUpdateOfRow(title == "Update",row)
+      --TODO SQL errors
+    END IF
     END IF
   END IF
-  --TODO SQL errors ?
   CALL d.close()
   CALL utils.closeDynamicWindow(winId)
 END FUNCTION
