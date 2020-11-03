@@ -1,3 +1,4 @@
+export FGLPROFILE=fglprofile
 %.42f: %.per 
 	fglform -M $<
 
@@ -29,11 +30,8 @@ test: stores.dbs $(MODULES)
 sql2array: stores.dbs sql2array.42m utils.42m
 	fglrun sql2array
 
-stores.dbs:
-	fglcomp mkstores && fglrun mkstores
-
-stores.sch: stores.dbs
-	fgldbsch -dv sqlite -of stores -db stores.dbs
+stores.sch:
+	fglcomp -M mkstores && fglrun mkstores
 
 clean::
 	$(RM) -f stores.dbs stores.sch

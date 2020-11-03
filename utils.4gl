@@ -47,38 +47,16 @@ FUNCTION dbconnect()
   DEFINE dbName STRING = "stores.dbs"
   DEFINE driver STRING = "sqlite"
   DEFINE db STRING
-  LET db =
-    IIF(NOT driver.equals("default"),
-      SFMT("%1+driver='%2'", dbName, driver),
-      dbName)
-  DATABASE db
-END FUNCTION
-
---TODO: have a clearArray() reflection method
-FUNCTION clearReflectArray(arrVal reflect.Value)
-  DEFINE i, len INT
-  MYASSERT(arrVal.getType().getKind() == "ARRAY")
-  LET len = arrVal.getLength()
-  FOR i = len TO 1 STEP -1
-    CALL arrVal.deleteArrayElement(i)
-  END FOR
-  MYASSERT(arrVal.getLength() == 0)
-END FUNCTION
-
---TODO: have a getFieldByName() reflection method
-FUNCTION getReflectFieldByName(
-  recv reflect.Value, name STRING)
-  RETURNS reflect.Value
-  DEFINE i, len INT
-  DEFINE trec reflect.Type
-  LET trec = recv.getType()
-  LET len = trec.getFieldCount()
-  FOR i = 1 TO len
-    IF trec.getFieldName(i) == name THEN
-      RETURN recv.getField(i)
-    END IF
-  END FOR
-  RETURN NULL
+  IF (base.Application.getResourceEntry(
+    "dbi.database.stores.source")) IS NOT NULL THEN
+    DATABASE stores
+  ELSE
+    LET db =
+      IIF(NOT driver.equals("default"),
+        SFMT("%1+driver='%2'", dbName, driver),
+        dbName)
+    DATABASE db
+  END IF
 END FUNCTION
 
 FUNCTION getArrayRecField(
@@ -92,7 +70,7 @@ FUNCTION getArrayRecField(
   MYASSERT(trec.getKind() == "RECORD")
   MYASSERT(idx >= 1 AND idx <= arrVal.getLength())
   LET el = arrVal.getArrayElement(idx)
-  IF (field := getReflectFieldByName(el, member)) IS NULL THEN
+  IF (field := el.getFieldByName(member)) IS NULL THEN
     CALL myerrAndStackTrace(
       SFMT("Can't find RECORD member '%1' in array", member))
   END IF
@@ -265,7 +243,7 @@ FUNCTION copyArrayOfRecord(src reflect.Value, dest reflect.Value)
       MYASSERT(trecdst.getFieldType(idx).isAssignableFrom(trecsrc.getFieldType(idx)))
     END FOR
   END IF
-  CALL clearReflectArray(dest)
+  CALL dest.clear()
   LET len = src.getLength()
   FOR idx = 1 TO len
     CALL dest.appendArrayElement()
@@ -335,8 +313,7 @@ FUNCTION copyArrayOfRecordByName(src reflect.Value, dest reflect.Value)
       END IF
     END IF
   END FOR
-  --for huge existing destination arrays  this might be slow
-  CALL clearReflectArray(dest)
+  CALL dest.clear()
   LET len = src.getLength()
   LET len2 = idxarrsrc.getLength()
   --now walk thru the source array and assign
@@ -452,8 +429,9 @@ PRIVATE FUNCTION addFieldNamesToDict(
   LET l = root.selectByTagName(tagName)
   LET len = l.getLength()
   FOR i = 1 TO len
-    LET node=l.item(i)
-    LET name = IIF(qualified,node.getAttribute("name"),node.getAttribute("colName"))
+    LET node = l.item(i)
+    LET name =
+      IIF(qualified, node.getAttribute("name"), node.getAttribute("colName"))
     LET dict[name] = dict.getLength()
   END FOR
 END FUNCTION
@@ -486,9 +464,9 @@ FUNCTION getInputColNames(qualified BOOLEAN) RETURNS T_INT_DICT
   DEFINE dict T_INT_DICT
   DEFINE root om.DomNode
   LET root = ui.Window.getCurrent().getForm().getNode()
-  CALL addFieldNamesToDict(dict, root, "TableColumn",qualified)
-  CALL addFieldNamesToDict(dict, root, "FormField",qualified)
-  CALL addFieldNamesToDict(dict, root, "Matrix",qualified)
+  CALL addFieldNamesToDict(dict, root, "TableColumn", qualified)
+  CALL addFieldNamesToDict(dict, root, "FormField", qualified)
+  CALL addFieldNamesToDict(dict, root, "Matrix", qualified)
   RETURN dict
 END FUNCTION
 

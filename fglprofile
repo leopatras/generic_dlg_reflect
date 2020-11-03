@@ -1,0 +1,10 @@
+# SQLite
+dbi.database.stores.source = "stores.dbs"
+dbi.database.stores.driver = "sqlite"
+
+# PostgreSQL
+#dbi.database.stores.source = "stores@localhost:5436"
+#dbi.database.stores.driver = "dbmpgs"
+#dbi.database.stores.username = "pgsuser"
+#dbi.database.stores.password = "fourjs"
+

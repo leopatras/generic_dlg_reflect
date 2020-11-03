@@ -130,7 +130,7 @@ FUNCTION readIntoArray(arr reflect.Value, sql STRING,byPosition BOOLEAN) RETURNS
   DEFINE name2Index T_2idxDICT
   LET tarr = arr.getType()
   MYASSERT(tarr.getKind() == "ARRAY")
-  CALL utils.clearReflectArray(arr)
+  CALL arr.clear()
   --DISPLAY "toString:", tarr.toString(), ",kind:", tarr.getKind()
   LET trec = tarr.getElementType()
   MYASSERT(trec.getKind() == "RECORD")
