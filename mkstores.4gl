@@ -6,6 +6,7 @@
 # Four Js and its suppliers do not warrant or guarantee that these
 # samples are accurate and suitable for your purposes. Their inclusion is
 # purely for information purposes only.
+IMPORT FGL fgldbutl
 
 DEFINE driver STRING
 
@@ -130,9 +131,10 @@ FUNCTION createDatabase()
     LOAD FROM appdir || "/stores.exp/state.unl" INSERT INTO STATE
     LOAD FROM appdir || "/stores.exp/stock.unl" INSERT INTO STOCK
     COMMIT WORK
-    RUN sfmt("fgldbsch -dv %1 -of stores -db stores.dbs",driver)
-    RUN "fglcomp convert_serials &&  fglrun  convert_serials"
-    --UNLOAD TO "items.unl" SELECT * FROM items
     DISCONNECT ALL
+    RUN sfmt("fgldbsch -dv %1 -of stores -db stores.dbs",driver)
+    IF fgldbutl.db_get_database_type()=="PGS" THEN
+      RUN "fglcomp convert_serials &&  fglrun  convert_serials"
+    END IF
 END FUNCTION
 
