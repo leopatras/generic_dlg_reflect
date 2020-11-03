@@ -1,4 +1,5 @@
-OPTIONS SHORT CIRCUIT
+OPTIONS
+SHORT CIRCUIT
 &include "myassert.inc"
 IMPORT reflect
 IMPORT util
@@ -60,7 +61,7 @@ PUBLIC TYPE I_InsertOrUpdate INTERFACE
 END INTERFACE
 
 PUBLIC TYPE I_InsertOrUpdateOfRow INTERFACE
-  InsertOrUpdateOfRow(update BOOLEAN,row INT) RETURNS()
+  InsertOrUpdateOfRow(update BOOLEAN, row INT) RETURNS()
 END INTERFACE
 
 --define the public settable members of the
@@ -317,7 +318,8 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
           EXIT WHILE
         WHEN event = "BEFORE ROW"
           LET row = d.getCurrentRow(rec)
-          IF delegateDA IS NOT NULL AND delegateDA.canAssignToVariable(ifvarBR) THEN
+          IF delegateDA IS NOT NULL
+            AND delegateDA.canAssignToVariable(ifvarBR) THEN
             CALL delegateDA.assignToVariable(ifvarBR)
             CALL ifvarBR.BeforeRow(d, row)
           END IF
@@ -331,7 +333,8 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
           END IF
         WHEN event = "AFTER ROW"
           LET row = d.getCurrentRow(rec)
-          IF delegateDA IS NOT NULL AND delegateDA.canAssignToVariable(ifvarAR) THEN
+          IF delegateDA IS NOT NULL
+            AND delegateDA.canAssignToVariable(ifvarAR) THEN
             CALL delegateDA.assignToVariable(ifvarAR)
             CALL ifvarAR.AfterRow(d, row)
           END IF
@@ -362,7 +365,8 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
         WHEN event.getIndexOf(C_ON_ACTION, 1) = 1
           LET row = d.getCurrentRow(rec)
           --Call action trigger for the delegateDA if present
-          IF delegateDA IS NOT NULL AND delegateDA.canAssignToVariable(ifvarAR) THEN
+          IF delegateDA IS NOT NULL
+            AND delegateDA.canAssignToVariable(ifvarAR) THEN
             CALL delegateDA.assignToVariable(ifvarAR)
             CALL ifvarOA.OnActionInDA(actionFromEvent(event), row)
           END IF
@@ -376,7 +380,8 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
           END IF
         OTHERWISE
           LET row = d.getCurrentRow(rec)
-          IF delegateDA IS NOT NULL AND delegateDA.canAssignToVariable(ifvarOE) THEN
+          IF delegateDA IS NOT NULL
+            AND delegateDA.canAssignToVariable(ifvarOE) THEN
             CALL delegateDA.assignToVariable(ifvarOE)
             CALL ifvarOE.OnEventInDA(d, row, event)
           END IF
@@ -400,7 +405,7 @@ FUNCTION (self TM_SingleTableDA)
   LET savedVal = arrVal.getArrayElement(savedrow)
   LET currVal = arrVal.getArrayElement(currRow)
   CALL utils.copyRecord(currVal, savedVal)
-  CALL self.inputRow(d, arrval.getArrayElement(currRow), "Update", names)
+  CALL self.inputRow(arrval.getArrayElement(currRow), "Update", names)
   IF int_flag THEN
     --user might have modified data in currVal inbetween
     CALL utils.copyRecord(savedVal, currVal)
@@ -417,9 +422,11 @@ FUNCTION (self TM_SingleTableDA)
   CALL arrval.appendArrayElement()
   LET newRow = arrval.getLength()
   LET int_flag = FALSE
-  CALL self.inputRow(d, arrval.getArrayElement(newRow), "Append", names)
+  CALL self.inputRow(arrval.getArrayElement(newRow), "Append", names)
   IF int_flag THEN
     CALL arrval.deleteArrayElement(newRow)
+  ELSE
+    CALL self.setClickableImages(d)
   END IF
   CALL self.checkRowBoundActions(d, arrval)
   CALL self.setBrowseTitle(filterActive)
@@ -733,13 +740,26 @@ PRIVATE FUNCTION assignDlgValue(
   --only if the screen record contains the given (eventually qualified) name we assign
   IF names.contains(name) THEN
     --MYASSERT(names[name] == idx)
-    --DISPLAY sfmt("set field value for:%1=%2",name,value)
+    --DISPLAY SFMT("set field value for:%1=%2", name, value)
     LET value = reflect.Value.copyOf(d.getFieldValue(name))
     MYASSERT(fv.getType().isAssignableFrom(value.getType()))
     CALL fv.set(value)
+  ELSE
+    --DISPLAY "assignDlgValue: no field:", name
   END IF
   IF browseNames.contains(name) THEN
     CALL DA.setFieldValue(name, fv.toString())
+  END IF
+END FUNCTION
+
+FUNCTION (self TM_SingleTableDA) setClickableImages(d ui.Dialog)
+  IF self.o.addClickableImages THEN
+    IF self.o.hasUpdate THEN
+      CALL d.setFieldValue(IMG_MOD, "fa-edit")
+    END IF
+    IF self.o.hasDelete THEN
+      CALL d.setFieldValue(IMG_DEL, "fa-trash-o")
+    END IF
   END IF
 END FUNCTION
 
@@ -753,7 +773,6 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
   names T_INT_DICT)
   DEFINE i, len, fieldCnt INT
   DEFINE recv reflect.Value
-  DEFINE clickable BOOLEAN = self.o.addClickableImages
   DEFINE qualified BOOLEAN = self.o.qualifiedNames
   LET len = arrval.getLength()
   LET fieldCnt = trec.getFieldCount()
@@ -766,14 +785,7 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
     -- must set the current row before setting values
     CALL d.setCurrentRow(screenRec, i)
     CALL copyRecValues2DlgValues(recv, trec, fieldCnt, d, names, qualified)
-    IF clickable THEN
-      IF self.o.hasUpdate THEN
-        CALL d.setFieldValue(IMG_MOD, "fa-edit")
-      END IF
-      IF self.o.hasDelete THEN
-        CALL d.setFieldValue(IMG_DEL, "fa-trash-o")
-      END IF
-    END IF
+    CALL self.setClickableImages(d)
   END FOR
   IF arrval.getLength() > 0 THEN
     CALL d.setCurrentRow(screenRec, 1) -- TODO: should be done by the runtime
@@ -908,21 +920,44 @@ PRIVATE FUNCTION assignFieldValue(
   CALL fv.set(value)
 END FUNCTION
 
+PRIVATE FUNCTION (self TM_SingleTableDA)
+  handleInsertOrUpdate(
+  update BOOLEAN, recordVal reflect.Value)
+  RETURNS BOOLEAN
+  DEFINE ifvarIU I_InsertOrUpdate
+  DEFINE ifvarIURow I_InsertOrUpdateOfRow
+  DEFINE row INT
+  IF recordVal.canAssignToVariable(ifvarIU) THEN
+    CALL recordVal.assignToVariable(ifvarIU)
+    CALL ifvarIU.InsertOrUpdate(update)
+    --TODO SQL errors
+    RETURN TRUE
+  ELSE
+    IF self.o.delegateDA IS NOT NULL
+      AND self.o.delegateDA.canAssignToVariable(ifvarIURow) THEN
+      CALL self.o.delegateDA.assignToVariable(ifvarIURow)
+      LET row = self.dlgDA.getCurrentRow(self.o.browseRecord)
+      CALL ifvarIURow.InsertOrUpdateOfRow(update, row)
+      --TODO SQL errors
+      RETURN TRUE
+    END IF
+  END IF
+  RETURN FALSE
+END FUNCTION
+
 --implents an INPUT with a dynamic dialog and calls
 --various interface methods of recordVal in application code
 --if they are implemented
 PRIVATE FUNCTION (self TM_SingleTableDA)
   inputRow(
-  DA ui.Dialog, recordVal reflect.Value, title STRING, browseNames T_INT_DICT)
+  recordVal reflect.Value, title STRING, browseNames T_INT_DICT)
   DEFINE ev, err, curr, oldValue STRING
   DEFINE d ui.Dialog
-  DEFINE winId,row INT
+  DEFINE winId INT
   DEFINE handled BOOLEAN
   DEFINE ifvarII I_InitInput
   DEFINE ifvarBF I_BeforeField
   DEFINE ifvarAF I_AfterField
-  DEFINE ifvarIU I_InsertOrUpdate
-  DEFINE ifvarIURow I_InsertOrUpdateOfRow
   DEFINE ifvarOA I_OnActionInInput
   DEFINE ifvarIE I_OnEventInINPUT
   DEFINE names T_INT_DICT
@@ -1018,17 +1053,17 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
   IF NOT int_flag THEN
     -- copy values from Input to DisplayArray and to the backing RECORD
     CALL copyDlgValues2RecValues(
-      recordVal, trec, d, names, DA, browseNames, self.o.qualifiedNames)
-    IF recordVal.canAssignToVariable(ifvarIU) THEN
-      CALL recordVal.assignToVariable(ifvarIU)
-      CALL ifvarIU.InsertOrUpdate(title == "Update")
-      --TODO SQL errors
-    ELSE IF self.o.delegateDA IS NOT NULL AND self.o.delegateDA.canAssignToVariable(ifvarIURow) THEN
-      CALL self.o.delegateDA.assignToVariable(ifvarIURow)
-      LET row=DA.getCurrentRow(self.o.browseRecord)
-      CALL ifvarIURow.InsertOrUpdateOfRow(title == "Update",row)
-      --TODO SQL errors
-    END IF
+      recordVal, trec, d, names, self.dlgDA, browseNames, self.o.qualifiedNames)
+    IF self.handleInsertOrUpdate(title == "Update", recordVal) THEN
+      --we may have got an update in the insert (serial) so we need to sync the record
+      --to the DA dialog values
+      CALL copyRecValues2DlgValues(
+        recv: recordVal,
+        trec: trec,
+        fieldCnt: trec.getFieldCount(),
+        d: self.dlgDA,
+        names: browseNames,
+        qualified: self.o.qualifiedNames)
     END IF
   END IF
   CALL d.close()

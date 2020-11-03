@@ -92,8 +92,10 @@ MAIN
   --the following would fail: member count different
   --CALL utils.copyArrayOfRecord(reflect.Value.valueOf(t1arr),reflect.Value.valueOf(t5arr))
   --therefore we could use the "ByName" variant
+  LET t5arr[5].fname = "Willi"
   CALL utils.copyArrayOfRecordByName(
     reflect.Value.valueOf(t1arr), reflect.Value.valueOf(t5arr))
+  MYASSERT(t5arr.getLength() = 2)
   DISPLAY util.JSON.stringify(t5arr)
   MYASSERT(t5arr[1].fname = "Hans")
   MYASSERT(t5arr[2].lname = "Hansen")
