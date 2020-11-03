@@ -9,20 +9,20 @@ FUNCTION createDatabase()
   DEFINE haveProfile BOOLEAN
   DEFINE driver STRING
   LET haveProfile = FALSE
-  LET driver="sqlite"
+  LET driver = "sqlite"
 
   IF (src
     := base.Application.getResourceEntry(
       "dbi.database.stores.source")) IS NOT NULL THEN
-    LET driver=base.Application.getResourceEntry("dbi.database.stores.driver")
-    DISPLAY "db src:",
-      src,
-      ",db driver:",driver
+    LET driver = base.Application.getResourceEntry("dbi.database.stores.driver")
+    DISPLAY "db src:", src, ",db driver:", driver
     LET haveProfile = TRUE
-    TRY
-      DATABASE stores
-      RETURN
-    END TRY
+    IF driver == "sqlite" THEN
+      TRY
+        DATABASE stores
+        RETURN --exists already
+      END TRY
+    END IF
   ELSE --connect to sqlite
     TRY
       CONNECT TO SFMT("stores.dbs+driver='%1'", driver)
@@ -30,7 +30,7 @@ FUNCTION createDatabase()
     END TRY
   END IF
   IF haveProfile == TRUE THEN
-    IF driver=="sqlite" THEN
+    IF driver == "sqlite" THEN
       --we need to make the file available
       RUN "touch stores.dbs"
     END IF
