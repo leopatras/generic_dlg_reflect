@@ -4,6 +4,8 @@
 IMPORT reflect
 IMPORT util
 IMPORT FGL utils
+IMPORT FGL fgldbutl
+IMPORT FGL wrap_dbslib
 
 SCHEMA stores
 
@@ -36,9 +38,17 @@ MAIN
   DEFINE b,b1 T_customersSub
   DEFINE c,c1 T_customersAndOrders
   DEFINE d,d1 T_xarr
+  DEFINE cust T_customer
+  DEFINE names T_INT_DICT = ("customer_num":0,"fname":1,"lname":2)
   CALL utils.dbconnect()
+  LET cust.fname="Leo"
+  LET cust.lname="Schubert"
+  CALL insertRecordIntoDB(recv: reflect.Value.valueOf(cust),names:names,"customer")
+  DISPLAY util.JSON.stringify(cust)
   --demonstrates an ARRAY with a RECORD LIKE definition
   CALL readIntoArray(reflect.Value.valueOf(a), "select * from customer",FALSE)
+  MYASSERT(a.getLength()>0)
+  DISPLAY util.JSON.stringify(a[a.getLength()])
   CALL fetch_customers(a1)
   MYASSERT(util.JSON.stringify(a).equals(util.JSON.stringify(a1)))
   --demonstrates an ARRAY with a RECORD LIKE definition as a sub record ...as we have customer_num twice
@@ -249,4 +259,84 @@ FUNCTION fillArrayWithQueryData(
     END IF
     CALL h.fetch()
   END WHILE
+END FUNCTION
+
+--checks in depth 1
+FUNCTION getRecursiveFieldByName(recv reflect.Value,name STRING)
+  DEFINE fv,fvidx,fvsub reflect.Value
+  DEFINE trec,tf reflect.Type
+  DEFINE idx INT
+  LET fv=recv.getFieldByName(name)
+  IF fv IS NOT NULL THEN
+    MYASSERT(fv.getType().getKind()=="PRIMITIVE")
+    RETURN fv
+  END IF
+  LET trec=recv.getType()
+  MYASSERT(trec.getKind()=="RECORD")
+  FOR idx = 1 TO trec.getFieldCount()
+    LET tf = trec.getFieldType(idx)
+    IF tf.getKind() == "RECORD" THEN
+      LET fvidx = fv.getField(idx)
+      LET fvsub = fvidx.getFieldByName(name)
+      IF fvsub IS NOT NULL THEN
+        MYASSERT(fvsub.getType().getKind()=="PRIMITIVE")
+        RETURN fv
+      END IF
+    END IF
+  END FOR
+  RETURN NULL
+END FUNCTION
+
+FUNCTION formatValue(fv reflect.Value) RETURNS STRING
+  DISPLAY fv.getType().getKind(), fv.getType().toString()
+  RETURN fv.toString()
+END FUNCTION
+
+FUNCTION insertRecordIntoDB(recv reflect.Value,names T_INT_DICT,tabName STRING)
+  DEFINE keys DYNAMIC ARRAY OF STRING
+  DEFINE h base.SqlHandle
+  DEFINE sql,key,cols,quest,colName,serial STRING
+  DEFINE fv,svalue reflect.Value
+  DEFINE i INT
+  LET h = base.SqlHandle.create()
+  LET keys=names.getKeys()
+  FOR i=1 TO keys.getLength()
+    LET colName=keys[i]
+    IF wrap_dbslib.isSerialColumnForTable(colName,tabName) THEN
+      LET serial=colName
+      DISPLAY "omit serial:",serial," from INSERT"
+      CALL keys.deleteElement(i)
+      EXIT FOR
+    END IF
+  END FOR
+  FOR i=1 TO keys.getLength()
+    IF i>1 THEN
+      LET cols=cols,","
+      LET quest=quest,","
+    END IF
+    LET cols=cols,keys[i]
+    LET quest=quest,"?"
+  END FOR
+  LET sql=sfmt("INSERT INTO %1 (%2) VALUES (%3)",tabName,cols,quest)
+  DISPLAY "sql:",sql
+  CALL h.prepare(sql)
+  FOR i=1 TO keys.getLength()
+    LET key=keys[i]
+    LET fv=getRecursiveFieldByName(recv,key)
+    MYASSERT(fv IS NOT NULL)
+    CALL h.setParameter(i,fv.toString())
+  END FOR
+  TRY
+    CALL h.execute()
+    DISPLAY sqlca.sqlerrd[2]
+    IF serial IS NOT NULL THEN
+      LET fv=getRecursiveFieldByName(recv,serial)
+      MYASSERT(fv IS NOT NULL)
+      LET svalue=reflect.Value.valueOf(sqlca.sqlerrd[2])
+      MYASSERT(fv.getType().isAssignableFrom(svalue.getType()))
+      CALL fv.set(svalue)
+    END IF
+  CATCH 
+    DISPLAY "Error detected: ", SQLCA.SQLCODE
+  END TRY
 END FUNCTION
