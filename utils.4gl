@@ -374,6 +374,22 @@ FUNCTION append42f(fname STRING) RETURNS STRING
   RETURN f42f
 END FUNCTION
 
+FUNCTION scanTable(t om.DomNode, qualified BOOLEAN) RETURNS T_STRING_DICT
+  DEFINE i, loop INT
+  DEFINE name STRING
+  DEFINE dict T_STRING_DICT
+  FOR loop = 1 TO 2
+    VAR l2 = t.selectByTagName(IIF(loop == 1, "TableColumn", "PhantomColumn"))
+    FOR i = 1 TO l2.getLength()
+      VAR tc = l2.item(i)
+      LET name =
+        IIF(qualified, tc.getAttribute("name"), tc.getAttribute("colName"))
+      LET dict[name] = tc.getAttribute("sqlTabName")
+    END FOR
+  END FOR
+  RETURN dict
+END FUNCTION
+
 --unfortunately there is no ui.XX function to retrieve
 --complete information about screen record member names
 --so we need eventually to open the .42f file and scan a bit the DOM
@@ -383,12 +399,8 @@ FUNCTION readNamesFromScreenRecord(
   RETURNS T_STRING_DICT
   DEFINE doc om.DomDocument
   DEFINE root om.DomNode
-  DEFINE i INT
-  DEFINE name STRING
   DEFINE win ui.Window
   DEFINE frmO ui.Form
-  DEFINE dict T_STRING_DICT
-  DEFINE fieldIdDict T_NODE_DICT
   MYASSERT(screenRec IS NOT NULL)
   IF (win := ui.Window.getCurrent()) IS NULL
     OR (frmO := win.getForm()) IS NULL THEN
@@ -400,24 +412,25 @@ FUNCTION readNamesFromScreenRecord(
   --first search: Table
   VAR l = root.selectByPath(SFMT('//Table[@tabName="%1"]', screenRec))
   IF l.getLength() == 1 THEN
-    VAR t = l.item(1)
-    VAR l2 = t.selectByTagName("TableColumn")
-    FOR i = 1 TO l2.getLength()
-      VAR tc = l2.item(i)
-      LET name =
-        IIF(qualified, tc.getAttribute("name"), tc.getAttribute("colName"))
-      LET dict[name] = tc.getAttribute("sqlTabName")
-    END FOR
-    RETURN dict
+    RETURN scanTable(l.item(1), qualified)
   END IF
   --2nd search: RecordView..we need the .42f
   IF doc IS NULL THEN
     MYASSERT((doc := om.DomDocument.createFromXmlFile(f42f)) IS NOT NULL)
     LET root = doc.getDocumentElement()
   END IF
+  RETURN scanRecordView(root, screenRec, f42f, qualified)
+END FUNCTION
+
+FUNCTION scanRecordView(
+  root om.DomNode, screenRec STRING, f42f STRING, qualified BOOLEAN)
+  DEFINE dict T_STRING_DICT
+  DEFINE fieldIdDict T_NODE_DICT
+  DEFINE i INT
+  DEFINE name STRING
   LET fieldIdDict = getFieldIds(root)
   --DISPLAY "fieldIdDict:", util.JSON.stringify(fieldIdDict)
-  LET l = root.selectByPath(SFMT('//RecordView[@tabName="%1"]', screenRec))
+  VAR l = root.selectByPath(SFMT('//RecordView[@tabName="%1"]', screenRec))
   IF l.getLength() == 0 THEN
     CALL myerrAndStackTrace(
       SFMT("Can't find screen record '%1' in '%2'", screenRec, f42f))
@@ -484,6 +497,7 @@ FUNCTION getInputColumnNamesAndTableNames(
   DEFINE root om.DomNode
   LET root = ui.Window.getCurrent().getForm().getNode()
   CALL addFieldNamesToDict(namesdict, root, "TableColumn", qualified)
+  CALL addFieldNamesToDict(namesdict, root, "PhantomColumn", qualified)
   CALL addFieldNamesToDict(namesdict, root, "FormField", qualified)
   CALL addFieldNamesToDict(namesdict, root, "Matrix", qualified)
   RETURN namesdict

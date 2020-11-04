@@ -1,0 +1,33 @@
+DATABASE stores
+
+LAYOUT (TEXT = "Customers")
+TABLE(HEIGHT=15 LINES)
+{
+ Num   First Name    Last Name   Company   Address1  Address2   City   State     Zip Code   Phone    Comments
+[f000][f001        |f002       |f003     | f004     |f005     | f006 | f007     | f008    | f009    |f010    ]
+}
+END END
+
+TABLES
+--"cust" is an alias to the customer table
+cust=customer,
+cust_ex
+
+ATTRIBUTES
+
+f000 = cust.customer_num;
+f001 = cust.fname;
+f002 = cust.lname;
+f003 = cust.company;
+f004 = cust.address1;
+f005 = cust.address2;
+f006 = cust.city;
+f007 = cust.state;
+BUTTONEDIT f008 = cust.zipcode, UPSHIFT, NOTEDITABLE, ACTION=zoom;
+f009 = cust.phone;
+PHANTOM cust_ex.customer_num;
+f010 = cust_ex.comments;
+
+
+INSTRUCTIONS
+SCREEN RECORD scr(cust.*,cust_ex.*)
