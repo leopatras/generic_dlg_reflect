@@ -120,7 +120,7 @@ END FUNCTION
 --method called by the browseArray function
 --after INPUT mode whenever the current INPUT data must be written to DB
 --depending on the update flag one needs to invoke the suitable SQL statements here
-FUNCTION (self TM_customer) InsertOrUpdate(update BOOLEAN)
+FUNCTION (self TM_customer) XInsertOrUpdate(update BOOLEAN)
   IF update THEN
     UPDATE customer
       SET customer.* = self.cust.*
@@ -147,7 +147,7 @@ FUNCTION (self TM_customer) checkInterfaces()
   DEFINE iIE I_OnEventInINPUT
   DEFINE iBF I_BeforeField
   DEFINE iAF I_AfterField
-  DEFINE iIU I_InsertOrUpdate
+  --DEFINE iIU I_InsertOrUpdate
   DEFINE iOA I_OnActionInINPUT
   MYASSERT(FALSE)
   LET iAR = self --the compiler checks if TM_customer implements I_AfterRow
@@ -157,7 +157,7 @@ FUNCTION (self TM_customer) checkInterfaces()
   LET iBF = self
   LET iII = self
   LET iIE = self
-  LET iIU = self
+  --LET iIU = self
   LET iOA = self
 END FUNCTION
 

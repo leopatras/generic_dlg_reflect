@@ -7,6 +7,7 @@ IMPORT os
 IMPORT FGL utils
 IMPORT FGL fgldialog
 IMPORT FGL sql2array
+CONSTANT C_RECORD = "RECORD"
 --the I_ prefix indicates an interface
 
 --define a set of interfaces with single methods custom RECORDs can implement
@@ -87,10 +88,9 @@ PUBLIC TYPE T_SingleTableDAOptions RECORD
   hasDelete BOOLEAN,
   addClickableImages BOOLEAN,
   qualifiedNames
-    BOOLEAN, --if set field names are referenced by "tableName.columnName",
+    BOOLEAN --if set field names are referenced by "tableName.columnName",
 --and hence also the names in the ARRAY
 --this means RECORDs *must* have sub RECORD names *matching* the table names/aliases
-  tableAliasNames DICTIONARY OF STRING
 END RECORD
 
 --PUBLIC TYPE T_MDOptions RECORD
@@ -118,7 +118,8 @@ TYPE TM_SingleTableDA RECORD
     value STRING
   END RECORD,
   rowBounds DYNAMIC ARRAY OF STRING,
-  browseFormTextOrig STRING
+  browseFormTextOrig STRING,
+  inputTableNames T_INT_DICT
 END RECORD
 
 TYPE T_fields DYNAMIC ARRAY OF RECORD
@@ -216,9 +217,8 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
   LET arrval = self.o.arrayValue
   LET delegateDA = self.o.delegateDA
   LET trec = arrval.getType().getElementType()
-  MYASSERT(trec.getKind() == "RECORD")
+  MYASSERT(trec.getKind() == C_RECORD)
   MYASSERT(self.o.sqlAll IS NOT NULL)
-  --CALL describeFields(trec, fields)
   LET rec = self.o.browseRecord
   LET winId = utils.openDynamicWindow(self.o.browseForm)
   CALL self.checkClickableImages()
@@ -602,9 +602,11 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
   describeFieldsForINPUT(
   trec reflect.type, fields T_fields)
   RETURNS T_INT_DICT
-  DEFINE dict T_INT_DICT
-  LET dict = utils.getInputColNames(self.o.qualifiedNames)
-  RETURN self.describeFieldsINT(dict, trec, fields, "current form", NULL)
+  DEFINE columnNames T_STRING_DICT
+  LET columnNames =
+    utils.getInputColumnNamesAndTableNames(self.o.qualifiedNames)
+  DISPLAY "columnNames:", util.JSON.stringify(columnNames)
+  RETURN self.describeFieldsINT(columnNames, trec, fields, "current form", NULL)
 END FUNCTION
 
 PRIVATE FUNCTION (self TM_SingleTableDA)
@@ -612,7 +614,7 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
   rec STRING, frm STRING, trec reflect.type, fields T_fields)
   RETURNS T_INT_DICT
   DEFINE f42f STRING
-  DEFINE dict T_INT_DICT
+  DEFINE dict T_STRING_DICT
   LET f42f = utils.append42f(frm)
   LET dict = utils.readNamesFromScreenRecord(rec, f42f, self.o.qualifiedNames)
   DISPLAY "describeFieldsForRecord:", util.JSON.stringify(dict)
@@ -623,10 +625,11 @@ END FUNCTION
 PRIVATE FUNCTION assignFieldFromType(
   fields T_fields,
   t reflect.Type,
-  dict T_INT_DICT,
+  dict T_STRING_DICT,
   name STRING,
   autoPhantom BOOLEAN,
   out T_INT_DICT,
+  inputTableNames T_INT_DICT,
   where STRING)
   DEFINE idx INT
   MYASSERT(name IS NOT NULL)
@@ -635,6 +638,8 @@ PRIVATE FUNCTION assignFieldFromType(
       LET idx = fields.getLength() + 1
       LET fields[idx].name = name
       LET fields[idx].type = t.toString()
+      VAR sqltabName = dict[name]
+      LET inputTableNames[sqltabName] = inputTableNames.getLength()
       CALL dict.remove(name)
       LET out[name] = idx --have the array field pos as value
     WHEN NOT autoPhantom
@@ -645,24 +650,29 @@ END FUNCTION
 
 PRIVATE FUNCTION (self TM_SingleTableDA)
   describeFieldsINT(
-  dict T_INT_DICT, trec reflect.Type, fields T_fields, where STRING, rec STRING)
+  dict T_STRING_DICT,
+  trec reflect.Type,
+  fields T_fields,
+  where STRING,
+  rec STRING)
   RETURNS T_INT_DICT
   DEFINE name, subname STRING
   DEFINE out T_INT_DICT
-  DEFINE keys T_STRINGARR
+  DEFINE keys T_STRING_ARR
   DEFINE i, idx, j, cnt, subIdx, subCnt INT
   DEFINE tf reflect.Type
   DEFINE qualified BOOLEAN = self.o.qualifiedNames
   CALL fields.clear()
+  CALL self.inputTableNames.clear()
   LET cnt = trec.getFieldCount()
   FOR idx = 1 TO cnt
     LET name = trec.getFieldName(idx)
     LET tf = trec.getFieldType(idx)
-    IF tf.getKind() == "RECORD" THEN
+    IF tf.getKind() == C_RECORD THEN
       DISPLAY "RECORD with name:", name
       LET subCnt = tf.getFieldCount()
       FOR subIdx = 1 TO subCnt
-        MYASSERT(tf.getFieldType(subIdx).getKind().equals("RECORD") == FALSE)
+        MYASSERT(tf.getFieldType(subIdx).getKind().equals(C_RECORD) == FALSE)
         LET subname = tf.getFieldName(subIdx)
         LET subname = IIF(qualified, SFMT("%1.%2", name, subname), subname)
         CALL assignFieldFromType(
@@ -672,11 +682,19 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
           subname,
           self.o.autoPhantom,
           out,
+          self.inputTableNames,
           where)
       END FOR
     ELSE
       CALL assignFieldFromType(
-        fields, tf, dict, name, self.o.autoPhantom, out, where)
+        fields,
+        tf,
+        dict,
+        name,
+        self.o.autoPhantom,
+        out,
+        self.inputTableNames,
+        where)
     END IF
   END FOR
   IF rec IS NOT NULL THEN
@@ -703,6 +721,7 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
       LET fields[j].type = "STRING"
     END FOR
   END IF
+  DISPLAY "inputTableNames:", util.JSON.stringify(self.inputTableNames)
   RETURN out
 END FUNCTION
 
@@ -833,7 +852,7 @@ PRIVATE FUNCTION copyRecValues2DlgValues(
     LET fv = recv.getField(idx)
     LET name = trec.getFieldName(idx)
     LET fvt = fv.getType()
-    IF fvt.getKind() == "RECORD" THEN
+    IF fvt.getKind() == C_RECORD THEN
       LET subCnt = fvt.getFieldCount()
       FOR subIdx = 1 TO subCnt
         CALL getSubValueAndName(
@@ -863,7 +882,7 @@ PRIVATE FUNCTION copyDlgValues2RecValues(
     LET name = trec.getFieldName(idx)
     LET fvt = trec.getFieldType(idx)
     LET fv = recv.getField(idx)
-    IF fvt.getKind() == "RECORD" THEN
+    IF fvt.getKind() == C_RECORD THEN
       FOR subIdx = 1 TO fvt.getFieldCount()
         CALL getSubValueAndName(
           fv, fvt, subIdx, name, qualified)
@@ -888,7 +907,7 @@ PRIVATE FUNCTION getRecordFieldByName(
     LET name = trec.getFieldName(idx)
     LET fvt = trec.getFieldType(idx)
     LET fv = recv.getField(idx)
-    IF fvt.getKind() == "RECORD" THEN
+    IF fvt.getKind() == C_RECORD THEN
       FOR subIdx = 1 TO fvt.getFieldCount()
         CALL getSubValueAndName(
           fv, fvt, subIdx, name, qualified)
@@ -922,27 +941,35 @@ END FUNCTION
 
 PRIVATE FUNCTION (self TM_SingleTableDA)
   handleInsertOrUpdate(
-  update BOOLEAN, recordVal reflect.Value)
-  RETURNS BOOLEAN
+  update BOOLEAN, recordVal reflect.Value, names T_INT_DICT)
   DEFINE ifvarIU I_InsertOrUpdate
   DEFINE ifvarIURow I_InsertOrUpdateOfRow
   DEFINE row INT
   IF recordVal.canAssignToVariable(ifvarIU) THEN
     CALL recordVal.assignToVariable(ifvarIU)
     CALL ifvarIU.InsertOrUpdate(update)
-    --TODO SQL errors
-    RETURN TRUE
+    RETURN
   ELSE
     IF self.o.delegateDA IS NOT NULL
       AND self.o.delegateDA.canAssignToVariable(ifvarIURow) THEN
       CALL self.o.delegateDA.assignToVariable(ifvarIURow)
       LET row = self.dlgDA.getCurrentRow(self.o.browseRecord)
       CALL ifvarIURow.InsertOrUpdateOfRow(update, row)
-      --TODO SQL errors
-      RETURN TRUE
+      RETURN
     END IF
   END IF
-  RETURN FALSE
+  --we require that there is exclusively 1 sqlTabName is used
+  --to generate an automatic INSERT/UPDATE sql statement based on
+  --serial / PK column defs
+  VAR sqlInputTableCount = self.inputTableNames.getKeys().getLength()
+  MYASSERT(sqlInputTableCount == 1)
+  VAR tabName = self.inputTableNames.getKeys()[1]
+  --DISPLAY "tabName:", tabName
+  IF update THEN
+    CALL updateRecordInDB(recordVal, names, tabName, self.o.qualifiedNames)
+  ELSE
+    CALL insertRecordIntoDB(recordVal, names, tabName, self.o.qualifiedNames)
+  END IF
 END FUNCTION
 
 --implents an INPUT with a dynamic dialog and calls
@@ -1054,17 +1081,18 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
     -- copy values from Input to DisplayArray and to the backing RECORD
     CALL copyDlgValues2RecValues(
       recordVal, trec, d, names, self.dlgDA, browseNames, self.o.qualifiedNames)
-    IF self.handleInsertOrUpdate(title == "Update", recordVal) THEN
-      --we may have got an update in the insert (serial) so we need to sync the record
-      --to the DA dialog values
-      CALL copyRecValues2DlgValues(
-        recv: recordVal,
-        trec: trec,
-        fieldCnt: trec.getFieldCount(),
-        d: self.dlgDA,
-        names: browseNames,
-        qualified: self.o.qualifiedNames)
-    END IF
+    CALL self.handleInsertOrUpdate(title == "Update", recordVal, names)
+    CALL printRV("recordVal", recordVal)
+    --TODO: check SQL error here
+    --we may have got an update in the insert (serial) so we need to sync the record
+    --to the DA dialog values
+    CALL copyRecValues2DlgValues(
+      recv: recordVal,
+      trec: trec,
+      fieldCnt: trec.getFieldCount(),
+      d: self.dlgDA,
+      names: browseNames,
+      qualified: self.o.qualifiedNames)
   END IF
   CALL d.close()
   CALL utils.closeDynamicWindow(winId)

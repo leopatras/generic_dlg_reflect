@@ -10,8 +10,8 @@ PUBLIC CONSTANT C_ON_ACTION = "ON ACTION"
 PUBLIC CONSTANT C_BEFORE_ROW = "BEFORE ROW"
 PUBLIC CONSTANT C_AFTER_ROW = "AFTER ROW"
 
-PUBLIC TYPE T_STRINGARR DYNAMIC ARRAY OF STRING
---PUBLIC TYPE T_STRINGDICT DICTIONARY OF STRING
+PUBLIC TYPE T_STRING_ARR DYNAMIC ARRAY OF STRING
+PUBLIC TYPE T_STRING_DICT DICTIONARY OF STRING
 PUBLIC TYPE T_INT_DICT DICTIONARY OF INT
 
 DEFINE mShowStack BOOLEAN
@@ -19,9 +19,12 @@ DEFINE mWindows ARRAY[10] OF BOOLEAN
 
 MAIN
   DEFINE d T_INT_DICT
-  LET d = readNamesFromScreenRecord("scr", "customers_singlerow.42f", TRUE)
+  --LET d = readNamesFromScreenRecord("scr", "customers_singlerow.42f", TRUE)
   --LET d = readNamesFromScreenRecord("scr", "customers.42f",TRUE)
+  --DISPLAY util.JSON.stringify(d)
+  LET d = getColumnsForTable("customer")
   DISPLAY util.JSON.stringify(d)
+  DISPLAY getColumnForTableByPos("customer", 1)
 END MAIN
 
 FUNCTION myerrAndStackTrace(errstr STRING)
@@ -59,6 +62,37 @@ FUNCTION dbconnect()
   END IF
 END FUNCTION
 
+FUNCTION printRVInt(title STRING, val reflect.Value, indent STRING)
+  DEFINE i INT
+  VAR t = val.getType()
+  DISPLAY indent,
+    title,
+    " ",
+    t.toString(),
+    " ",
+    t.getKind(),
+    "=",
+    val.toString()
+  LET indent = indent, "  "
+  CASE
+    WHEN t.getKind() == "RECORD"
+      FOR i = 1 TO t.getFieldCount()
+        CALL printRVInt(t.getFieldName(i), val.getField(i), indent)
+      END FOR
+    WHEN t.getKind() == "ARRAY"
+      IF val.getLength() == 0 THEN
+        DISPLAY indent, "[]"
+      ELSE
+        VAR el = val.getArrayElement(1)
+        CALL printRVInt("1", el, indent)
+      END IF
+  END CASE
+END FUNCTION
+
+FUNCTION printRV(title STRING, val reflect.Value)
+  CALL printRVInt(title, val, "")
+END FUNCTION
+
 FUNCTION getArrayRecField(
   arrVal reflect.Value, idx INT, member STRING)
   RETURNS reflect.Value
@@ -90,9 +124,8 @@ END FUNCTION
 FUNCTION setArrayRecEl(
   arrVal reflect.Value, idx INT, member STRING, newVal STRING)
   RETURNS()
-  DEFINE field, newValR reflect.Value
-  LET field = getArrayRecField(arrVal, idx, member)
-  LET newValR = reflect.Value.valueOf(newVal)
+  VAR field = getArrayRecField(arrVal, idx, member)
+  VAR newValR = reflect.Value.valueOf(newVal)
   MYASSERT(field.getType().isAssignableFrom(newValR.getType()))
   CALL field.set(newValR)
 END FUNCTION
@@ -101,9 +134,8 @@ END FUNCTION
 FUNCTION getArrayRecElINT(
   arrVal reflect.Value, idx INT, member STRING)
   RETURNS INT
-  DEFINE field reflect.Value
   DEFINE x INT
-  LET field = getArrayRecField(arrVal, idx, member)
+  VAR field = getArrayRecField(arrVal, idx, member)
   --we explicitly check for the type to avoid nonsense NULL return values
   IF NOT field.getType().toString().equals("INTEGER") THEN
     CALL myerrAndStackTrace(
@@ -118,9 +150,8 @@ END FUNCTION
 FUNCTION getArrayRecElDATE(
   arrVal reflect.Value, idx INT, member STRING)
   RETURNS INT
-  DEFINE field reflect.Value
   DEFINE x DATE
-  LET field = getArrayRecField(arrVal, idx, member)
+  VAR field = getArrayRecField(arrVal, idx, member)
   --we explicitly check for the type to avoid nonsense NULL return values
   IF NOT field.getType().toString().equals("DATE") THEN
     CALL myerrAndStackTrace(
@@ -135,13 +166,10 @@ END FUNCTION
 --the names at a given member position must match and the members must be
 --assignable
 FUNCTION copyRecord(src reflect.Value, dest reflect.Value)
-  DEFINE tsrc, tdst reflect.Type
-  DEFINE fsrc, fdst reflect.Value
-  DEFINE cnt, idx INT
   --DISPLAY "toString:", tarr.toString(), ",kind:", tarr.getKind()
   --DISPLAY src.toString()
-  LET tsrc = src.getType()
-  LET tdst = dest.getType()
+  VAR tsrc = src.getType()
+  VAR tdst = dest.getType()
   MYASSERT(tsrc.getKind() == "RECORD")
   MYASSERT(tdst.getKind() == "RECORD")
   {
@@ -154,12 +182,13 @@ FUNCTION copyRecord(src reflect.Value, dest reflect.Value)
   }
   --number of elements must be equal
   MYASSERT(tsrc.getFieldCount() == tdst.getFieldCount())
-  LET cnt = tsrc.getFieldCount()
+  VAR cnt = tsrc.getFieldCount()
+  VAR idx INT
   FOR idx = 1 TO cnt
     --name at position must be equal
     MYASSERT(tsrc.getFieldName(idx) == tdst.getFieldName(idx))
-    LET fsrc = src.getField(idx)
-    LET fdst = dest.getField(idx)
+    VAR fsrc = src.getField(idx)
+    VAR fdst = dest.getField(idx)
     --type check
     MYASSERT(fdst.getType().isAssignableFrom(fsrc.getType()))
     CALL fdst.set(fsrc)
@@ -169,15 +198,11 @@ END FUNCTION
 --copies a record using reflection,relaxed version
 --only record members which have matching names and matching types are copied
 FUNCTION copyRecordByName(src reflect.Value, dest reflect.Value)
-  DEFINE tsrc, tdst reflect.Type
-  DEFINE fsrc, fdst reflect.Value
-  DEFINE cnt, idx, idxsrc INT
-  DEFINE name STRING
   DEFINE name2Index DICTIONARY OF INT
   --DISPLAY "toString:", tarr.toString(), ",kind:", tarr.getKind()
   --DISPLAY src.toString()
-  LET tsrc = src.getType()
-  LET tdst = dest.getType()
+  VAR tsrc = src.getType()
+  VAR tdst = dest.getType()
   MYASSERT(tsrc.getKind() == "RECORD")
   MYASSERT(tdst.getKind() == "RECORD")
   IF tdst.isAssignableFrom(tsrc) THEN
@@ -187,18 +212,19 @@ FUNCTION copyRecordByName(src reflect.Value, dest reflect.Value)
       "RECORD types match: use a direct RECORD assignment instead(performance)")
   END IF
   --first iterate thru the source record
-  LET cnt = tsrc.getFieldCount()
+  VAR cnt = tsrc.getFieldCount()
+  VAR idx, idxsrc INT
   FOR idx = 1 TO cnt
     LET name2Index[tsrc.getFieldName(idx)] = idx
   END FOR
   LET cnt = tdst.getFieldCount()
   --2nd iterate thru the destination record
   FOR idx = 1 TO cnt
-    LET name = tdst.getFieldName(idx)
+    VAR name = tdst.getFieldName(idx)
     IF (idxsrc := name2Index[name]) IS NOT NULL THEN
       --we did find a matching name in the src record
-      LET fsrc = src.getField(idxsrc)
-      LET fdst = dest.getField(idx)
+      VAR fsrc = src.getField(idxsrc)
+      VAR fdst = dest.getField(idx)
       IF fdst.getType().isAssignableFrom(fsrc.getType()) THEN
         --and types match  too
         CALL fdst.set(fsrc)
@@ -211,18 +237,15 @@ END FUNCTION
 --RECORD members and the same order of names and types
 --please clear the destination array for efficiency before calling this func
 FUNCTION copyArrayOfRecord(src reflect.Value, dest reflect.Value)
-  DEFINE tsrc, tdst, trecsrc, trecdst reflect.Type
-  DEFINE elsrc, eldst, fieldsrc, fielddst reflect.Value
-  DEFINE numFields, idx, j, len INT
-  DEFINE directAssignable BOOLEAN
-  LET tsrc = src.getType()
-  LET tdst = dest.getType()
+  DEFINE idx, j INT
+  VAR tsrc = src.getType()
+  VAR tdst = dest.getType()
   --DISPLAY src.toString() --not working, JSON would be cool
   --DISPLAY "kind:",tsrc.getKind(),tsrc.toString()
   MYASSERT(tsrc.getKind() == "ARRAY")
   MYASSERT(tdst.getKind() == "ARRAY")
-  LET trecsrc = tsrc.getElementType()
-  LET trecdst = tdst.getElementType()
+  VAR trecsrc = tsrc.getElementType()
+  VAR trecdst = tdst.getElementType()
   MYASSERT(trecsrc.getKind() == "RECORD")
   MYASSERT(trecdst.getKind() == "RECORD")
   IF trecdst.toString() == trecsrc.toString() THEN
@@ -231,7 +254,8 @@ FUNCTION copyArrayOfRecord(src reflect.Value, dest reflect.Value)
         trecdst.toString()))
   END IF
   MYASSERT(trecsrc.getFieldCount() == trecdst.getFieldCount())
-  LET numFields = trecsrc.getFieldCount()
+  VAR numFields = trecsrc.getFieldCount()
+  VAR directAssignable BOOLEAN
   IF trecdst.isAssignableFrom(trecsrc) THEN
     LET directAssignable = TRUE
   ELSE
@@ -244,11 +268,11 @@ FUNCTION copyArrayOfRecord(src reflect.Value, dest reflect.Value)
     END FOR
   END IF
   CALL dest.clear()
-  LET len = src.getLength()
+  VAR len = src.getLength()
   FOR idx = 1 TO len
     CALL dest.appendArrayElement()
-    LET elsrc = src.getArrayElement(idx)
-    LET eldst = dest.getArrayElement(idx)
+    VAR elsrc = src.getArrayElement(idx)
+    VAR eldst = dest.getArrayElement(idx)
     MYASSERT(dest.getLength() == idx AND eldst IS NOT NULL AND NOT eldst.isNull())
     IF directAssignable THEN
       DISPLAY "here"
@@ -256,8 +280,8 @@ FUNCTION copyArrayOfRecord(src reflect.Value, dest reflect.Value)
       CALL eldst.set(elsrc)
     ELSE
       FOR j = 1 TO numFields
-        LET fieldsrc = elsrc.getField(j)
-        LET fielddst = eldst.getField(j)
+        VAR fieldsrc = elsrc.getField(j)
+        VAR fielddst = eldst.getField(j)
         MYASSERT(fielddst.getType().isAssignableFrom(fieldsrc.getType()))
         CALL fielddst.set(fieldsrc)
       END FOR
@@ -270,19 +294,17 @@ END FUNCTION
 --only RECORD members with a matching name and type are copied over
 --please clear the destination array for efficiency before calling this func
 FUNCTION copyArrayOfRecordByName(src reflect.Value, dest reflect.Value)
-  DEFINE tsrc, tdst, trecsrc, trecdst, fieldtsrc, fieldtdst reflect.Type
-  DEFINE elsrc, eldst, fieldsrc, fielddst reflect.Value
-  DEFINE cnt, idx, idxsrc, j, len, len2 INT
+  DEFINE idx, idxsrc, j INT
   DEFINE name2Index DICTIONARY OF INT
   DEFINE idxarrsrc, idxarrdst DYNAMIC ARRAY OF INT
-  LET tsrc = src.getType()
-  LET tdst = dest.getType()
+  VAR tsrc = src.getType()
+  VAR tdst = dest.getType()
   --DISPLAY src.toString() --not working, JSON would be cool
   --DISPLAY "kind:",tsrc.getKind(),tsrc.toString()
   MYASSERT(tsrc.getKind() == "ARRAY")
   MYASSERT(tdst.getKind() == "ARRAY")
-  LET trecsrc = tsrc.getElementType()
-  LET trecdst = tdst.getElementType()
+  VAR trecsrc = tsrc.getElementType()
+  VAR trecdst = tdst.getElementType()
   MYASSERT(trecsrc.getKind() == "RECORD")
   MYASSERT(trecdst.getKind() == "RECORD")
   IF trecdst.toString() == trecsrc.toString() THEN
@@ -295,7 +317,7 @@ FUNCTION copyArrayOfRecordByName(src reflect.Value, dest reflect.Value)
       "RECORD types match: use the copyArrayOfRecord() function instead of this function (performance)")
     RETURN
   END IF
-  LET cnt = trecsrc.getFieldCount()
+  VAR cnt = trecsrc.getFieldCount()
   FOR idx = 1 TO cnt
     LET name2Index[trecsrc.getFieldName(idx)] = idx
   END FOR
@@ -304,8 +326,8 @@ FUNCTION copyArrayOfRecordByName(src reflect.Value, dest reflect.Value)
   FOR idx = 1 TO cnt
     IF (idxsrc := name2Index[trecdst.getFieldName(idx)]) IS NOT NULL THEN
       --we did find a matching name in the src record
-      LET fieldtsrc = trecsrc.getFieldType(idxsrc)
-      LET fieldtdst = trecdst.getFieldType(idx)
+      VAR fieldtsrc = trecsrc.getFieldType(idxsrc)
+      VAR fieldtdst = trecdst.getFieldType(idx)
       IF fieldtdst.isAssignableFrom(fieldtsrc) THEN
         --and types match too
         LET idxarrsrc[idxarrsrc.getLength() + 1] = idxsrc
@@ -314,17 +336,17 @@ FUNCTION copyArrayOfRecordByName(src reflect.Value, dest reflect.Value)
     END IF
   END FOR
   CALL dest.clear()
-  LET len = src.getLength()
-  LET len2 = idxarrsrc.getLength()
+  VAR len = src.getLength()
+  VAR len2 = idxarrsrc.getLength()
   --now walk thru the source array and assign
   --members by field indexes
   FOR idx = 1 TO len
     CALL dest.appendArrayElement()
-    LET elsrc = src.getArrayElement(idx)
-    LET eldst = dest.getArrayElement(idx)
+    VAR elsrc = src.getArrayElement(idx)
+    VAR eldst = dest.getArrayElement(idx)
     FOR j = 1 TO len2
-      LET fieldsrc = elsrc.getField(idxarrsrc[j])
-      LET fielddst = eldst.getField(idxarrdst[j])
+      VAR fieldsrc = elsrc.getField(idxarrsrc[j])
+      VAR fielddst = eldst.getField(idxarrdst[j])
       MYASSERT(fielddst.getType().isAssignableFrom(fieldsrc.getType()))
       CALL fielddst.set(fieldsrc)
     END FOR
@@ -335,9 +357,8 @@ FUNCTION getFormTitle() RETURNS STRING
   RETURN ui.Window.getCurrent().getForm().getNode().getAttribute("text")
 END FUNCTION
 
-FUNCTION changeFileExtension(fname, newExt)
-  DEFINE fname, ext, newExt STRING
-  LET ext = os.Path.extension(fname)
+FUNCTION changeFileExtension(fname STRING, newExt STRING)
+  VAR ext = os.Path.extension(fname)
   LET fname = fname.subString(1, fname.getLength() - ext.getLength()), newExt
   RETURN fname
 END FUNCTION
@@ -359,16 +380,15 @@ END FUNCTION
 --if qualified is set, the returned names are "tableName.columnName"
 FUNCTION readNamesFromScreenRecord(
   screenRec STRING, f42f STRING, qualified BOOLEAN)
-  RETURNS T_INT_DICT
+  RETURNS T_STRING_DICT
   DEFINE doc om.DomDocument
-  DEFINE root, t, tc, rv, link om.DomNode
-  DEFINE l om.NodeList
+  DEFINE root om.DomNode
   DEFINE i INT
-  DEFINE name, fieldId STRING
+  DEFINE name STRING
   DEFINE win ui.Window
   DEFINE frmO ui.Form
-  DEFINE dict T_INT_DICT
-  DEFINE fieldIdDict DICTIONARY OF STRING
+  DEFINE dict T_STRING_DICT
+  DEFINE fieldIdDict T_NODE_DICT
   MYASSERT(screenRec IS NOT NULL)
   IF (win := ui.Window.getCurrent()) IS NULL
     OR (frmO := win.getForm()) IS NULL THEN
@@ -378,15 +398,15 @@ FUNCTION readNamesFromScreenRecord(
     LET root = frmO.getNode()
   END IF
   --first search: Table
-  LET l = root.selectByPath(SFMT('//Table[@tabName="%1"]', screenRec))
+  VAR l = root.selectByPath(SFMT('//Table[@tabName="%1"]', screenRec))
   IF l.getLength() == 1 THEN
-    LET t = l.item(1)
-    LET l = t.selectByTagName("TableColumn")
-    FOR i = 1 TO l.getLength()
-      LET tc = l.item(i)
+    VAR t = l.item(1)
+    VAR l2 = t.selectByTagName("TableColumn")
+    FOR i = 1 TO l2.getLength()
+      VAR tc = l2.item(i)
       LET name =
         IIF(qualified, tc.getAttribute("name"), tc.getAttribute("colName"))
-      LET dict[name] = i
+      LET dict[name] = tc.getAttribute("sqlTabName")
     END FOR
     RETURN dict
   END IF
@@ -395,79 +415,78 @@ FUNCTION readNamesFromScreenRecord(
     MYASSERT((doc := om.DomDocument.createFromXmlFile(f42f)) IS NOT NULL)
     LET root = doc.getDocumentElement()
   END IF
-  IF qualified THEN
-    LET fieldIdDict = getFieldIds(root)
-    DISPLAY "fieldIdDict:", util.JSON.stringify(fieldIdDict)
-  END IF
+  LET fieldIdDict = getFieldIds(root)
+  --DISPLAY "fieldIdDict:", util.JSON.stringify(fieldIdDict)
   LET l = root.selectByPath(SFMT('//RecordView[@tabName="%1"]', screenRec))
   IF l.getLength() == 0 THEN
     CALL myerrAndStackTrace(
       SFMT("Can't find screen record '%1' in '%2'", screenRec, f42f))
   END IF
-  LET rv = l.item(1)
+  VAR rv = l.item(1)
   LET l = rv.selectByTagName("Link")
   FOR i = 1 TO l.getLength()
-    LET link = l.item(i)
+    VAR link = l.item(i)
+    VAR fieldId = link.getAttribute("fieldIdRef")
+    VAR node = fieldIdDict[fieldId]
     IF qualified THEN
-      LET fieldId = link.getAttribute("fieldIdRef")
-      LET name = fieldIdDict[fieldId]
+      LET name = node.getAttribute("name")
     ELSE
       LET name = link.getAttribute("colName")
+      MYASSERT(name == node.getAttribute("colName"))
     END IF
     MYASSERT(name IS NOT NULL)
-    LET dict[name] = i
+    LET dict[name] = node.getAttribute("sqlTabName")
   END FOR
   RETURN dict
 END FUNCTION
 
 PRIVATE FUNCTION addFieldNamesToDict(
-  dict T_INT_DICT, root om.DomNode, tagName STRING, qualified BOOLEAN)
-  DEFINE l om.NodeList
-  DEFINE node om.DomNode
+  fieldsDict T_STRING_DICT, root om.DomNode, tagName STRING, qualified BOOLEAN)
   DEFINE name STRING
-  DEFINE i, len INT
-  LET l = root.selectByTagName(tagName)
-  LET len = l.getLength()
+  DEFINE i INT
+  VAR l = root.selectByTagName(tagName)
+  VAR len = l.getLength()
   FOR i = 1 TO len
-    LET node = l.item(i)
+    VAR node = l.item(i)
     LET name =
       IIF(qualified, node.getAttribute("name"), node.getAttribute("colName"))
-    LET dict[name] = dict.getLength()
+    LET fieldsDict[name] = node.getAttribute("sqlTabName")
   END FOR
 END FUNCTION
+
+TYPE T_NODE_DICT DICTIONARY OF om.DomNode
 
 PRIVATE FUNCTION addFullNamesByFieldId(
-  dict DICTIONARY OF STRING, root om.DomNode, tagName STRING)
-  DEFINE l om.NodeList
-  DEFINE node om.DomNode
-  DEFINE name, fieldId STRING
-  DEFINE i, len INT
-  LET l = root.selectByTagName(tagName)
-  LET len = l.getLength()
+  dict T_NODE_DICT, root om.DomNode, tagName STRING)
+  DEFINE i INT
+  VAR l = root.selectByTagName(tagName)
+  VAR len = l.getLength()
   FOR i = 1 TO len
-    LET node = l.item(i)
-    LET name = node.getAttribute("name")
-    LET fieldId = node.getAttribute("fieldId")
-    LET dict[fieldId] = name
+    VAR node = l.item(i)
+    --VAR name = node.getAttribute("name")
+    VAR fieldId = node.getAttribute("fieldId")
+    LET dict[fieldId] = node
   END FOR
 END FUNCTION
 
-PRIVATE FUNCTION getFieldIds(root om.DomNode) RETURNS(DICTIONARY OF STRING)
-  DEFINE dict DICTIONARY OF STRING
+PRIVATE FUNCTION getFieldIds(root om.DomNode) RETURNS T_NODE_DICT
+  DEFINE dict T_NODE_DICT
   CALL addFullNamesByFieldId(dict, root, "FormField")
   CALL addFullNamesByFieldId(dict, root, "Matrix")
   RETURN dict
 END FUNCTION
 
 --retrieves all inputtable fields in the current form
-FUNCTION getInputColNames(qualified BOOLEAN) RETURNS T_INT_DICT
-  DEFINE dict T_INT_DICT
+FUNCTION getInputColumnNamesAndTableNames(
+  qualified BOOLEAN)
+  RETURNS T_STRING_DICT
+  DEFINE namesdict T_STRING_DICT
   DEFINE root om.DomNode
   LET root = ui.Window.getCurrent().getForm().getNode()
-  CALL addFieldNamesToDict(dict, root, "TableColumn", qualified)
-  CALL addFieldNamesToDict(dict, root, "FormField", qualified)
-  CALL addFieldNamesToDict(dict, root, "Matrix", qualified)
-  RETURN dict
+  CALL addFieldNamesToDict(namesdict, root, "TableColumn", qualified)
+  CALL addFieldNamesToDict(namesdict, root, "FormField", qualified)
+  CALL addFieldNamesToDict(namesdict, root, "Matrix", qualified)
+  RETURN namesdict
 END FUNCTION
 
 --really not nice, but not a road block
@@ -539,4 +558,125 @@ FUNCTION closeDynamicWindow(winId STRING)
         SFMT("Wrong winId:%1,must be between 0 and 10", winId))
   END CASE
   LET mWindows[winId] = FALSE
+END FUNCTION
+
+TYPE T_schemaVal RECORD
+  isSerial BOOLEAN,
+  isNULL BOOLEAN,
+  typeStr BOOLEAN
+END RECORD
+
+FUNCTION getSchemaVal(
+  tabname STRING, colname STRING, dt INT, len INT)
+  RETURNS T_schemaVal
+  DEFINE schVal T_schemaVal
+  --typeStr *should* match the type strings used in reflection
+  --TODO need a test
+  CASE dt MOD 256
+    WHEN 0
+      LET schVal.typeStr = SFMT("CHAR(%1)", len)
+    WHEN 1
+      LET schVal.typeStr = "SMALLINT"
+    WHEN 2
+      LET schVal.typeStr = "INTEGER"
+    WHEN 3
+      LET schVal.typeStr = "FLOAT"
+    WHEN 4
+      LET schVal.typeStr = "SMALLFLOAT"
+    WHEN 5
+      LET schVal.typeStr = "DECIMAL"
+    WHEN 6
+      --DISPLAY "serial for:", tabname, " ", colname
+      LET schVal.isSerial = TRUE
+      LET schVal.typeStr = "INTEGER"
+    WHEN 7
+      LET schVal.typeStr = "DATE"
+    WHEN 8
+      LET schVal.typeStr = "MONEY"
+    WHEN 10
+      LET schVal.typeStr = "DATETIME" --TODO len
+    WHEN 11
+      LET schVal.typeStr = "BYTE"
+    WHEN 12
+      LET schVal.typeStr = "TEXT"
+    WHEN 13
+      LET schVal.typeStr = "VARCHAR" --TODO len
+    WHEN 14
+      LET schVal.typeStr = "INTERVAL" --TODO len
+    WHEN 15
+      LET schVal.typeStr = "CHAR" --TODO len
+    WHEN 16
+      LET schVal.typeStr = "VARCHAR" --TODO len
+    WHEN 17 --INT8
+      LET schVal.typeStr = "BIGINT"
+    WHEN 18 --SERIAL8
+      LET schVal.isSerial = TRUE
+      LET schVal.typeStr = "BIGINT"
+    WHEN 45 --SQLBOOL
+      LET schVal.typeStr = "BOOLEAN"
+    WHEN 52
+      LET schVal.typeStr = "BIGINT"
+    WHEN 53 --BIGSERIAL
+      LET schVal.isSerial = TRUE
+      LET schVal.typeStr = "BIGINT"
+    WHEN 201 --VARCHAR2
+      LET schVal.typeStr = "VARCHAR" --TODO len
+    WHEN 202 --NVARCHAR2
+      LET schVal.typeStr = "VARCHAR" --TODO len
+    OTHERWISE
+      DISPLAY SFMT("unhandled type:%1 for table:%2 column:%3",
+        dt MOD 256, tabname, colname)
+  END CASE
+  LET schVal.isNULL = dt / 256 == 1
+  RETURN schVal.*
+END FUNCTION
+
+TYPE T_SCH_DICT DICTIONARY OF T_schemaVal
+DEFINE m_schema DICTIONARY OF T_SCH_DICT
+DEFINE m_colsByName DICTIONARY OF T_INT_DICT
+DEFINE m_colsByPos DICTIONARY OF T_STRING_ARR
+
+FUNCTION readSchema(schFile STRING)
+  IF m_schema.getLength() > 0 THEN
+    RETURN
+  END IF
+  VAR ch = base.Channel.create()
+  CALL ch.setDelimiter("^")
+  CALL ch.openFile(schFile, "r")
+  VAR
+    tabName, colName STRING,
+    dt, len, pos INT
+  WHILE ch.read([tabname, colname, dt, len, pos])
+    VAR schVal T_schemaVal
+    CALL getSchemaVal(tabname, colname, dt, len) RETURNING schVal.*
+    LET m_schema[tabname][colname] = schVal
+    LET m_colsByName[tabname][colname] = pos
+    LET m_colsByPos[tabname][pos] = colName
+  END WHILE
+  MYASSERT(m_schema.getLength() > 0)
+  CALL ch.close()
+END FUNCTION
+
+FUNCTION isSerialColumnForTable(colname STRING, tabname STRING)
+  CALL readSchema("stores.sch")
+  VAR schv T_schemaVal
+  LET schv = m_schema[tabname][colname]
+  RETURN schv.isSerial
+END FUNCTION
+
+FUNCTION getDataTypeStrOfColumn(colname STRING, tabname STRING)
+  CALL readSchema("stores.sch")
+  VAR schv T_schemaVal
+  LET schv = m_schema[tabname][colname]
+  RETURN schv.typeStr
+END FUNCTION
+
+FUNCTION getColumnsForTable(tabname STRING) RETURNS T_INT_DICT
+  CALL readSchema("stores.sch")
+  RETURN m_colsByName[tabname]
+END FUNCTION
+
+FUNCTION getColumnForTableByPos(tabname STRING, pos INT) RETURNS STRING
+  CALL readSchema("stores.sch")
+  RETURN m_colsByPos[tabname][pos]
 END FUNCTION
