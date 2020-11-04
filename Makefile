@@ -11,12 +11,15 @@ FORMS   = $(patsubst %.per, %.42f, $(wildcard *.per))
 all: $(FORMS) $(MODULES)
 
 
-$(FORMS) $(MODULES): stores.sch
+$(FORMS) $(MODULES): cols_customer.4gl stores.sch
 
 run: stores.sch $(MODULES) $(FORMS)
 	fglrun customers
 
 test.42m: utils.42m
+
+cols_customer.4gl: stores.sch
+	fglcomp colnamegen && fglrun colnamegen stores.sch customer cols_customer.4gl
 
 sDAdyn.42m: utils.42m sql2array.42m
 
@@ -35,5 +38,5 @@ stores.sch:
 
 clean::
 	$(RM) -f stores.dbs stores.sch
-	$(RM) -f *.42?
+	$(RM) -f *.42? cols_customer.4gl
 

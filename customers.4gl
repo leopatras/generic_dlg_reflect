@@ -4,6 +4,7 @@ IMPORT util
 IMPORT FGL utils
 IMPORT FGL sDAdyn
 IMPORT FGL orders
+IMPORT FGL cols_customer -- columns of customer
 SCHEMA stores
 --the 'TM_' prefix indicates: this type has Methods
 --vs the 'T_' prefix : this type doesn't have Methods
@@ -100,8 +101,8 @@ FUNCTION (self TM_customer)
   DISPLAY SFMT("AFTER FIELD field:%1 value:%2 oldValue:%3",
     fieldName, d.getFieldValue(fieldName), oldValue)
   CASE
-    WHEN fieldName == "cust.zipcode" AND LENGTH(self.cust.zipcode) <> 5
-      DISPLAY "zipcode:'", self.cust.zipcode, "'"
+    WHEN fieldName == cols_customer.C_zipcode AND LENGTH(self.cust.zipcode) <> 5
+      DISPLAY fieldName,":'", self.cust.zipcode, "'"
       RETURN "Zipcode must have 5 digits"
   END CASE
   RETURN NULL --NULL means: no error
@@ -117,42 +118,18 @@ FUNCTION (self TM_customer)
   RETURN FALSE, NULL
 END FUNCTION
 
---method called by the browseArray function
---after INPUT mode whenever the current INPUT data must be written to DB
---depending on the update flag one needs to invoke the suitable SQL statements here
-FUNCTION (self TM_customer) XInsertOrUpdate(update BOOLEAN)
-  IF update THEN
-    UPDATE customer
-      SET customer.* = self.cust.*
-      WHERE @customer_num = self.cust.customer_num
-  ELSE
-    INSERT INTO customer VALUES self.cust.*
-    LET self.cust.customer_num = sqlca.sqlerrd[2]
-  END IF
-END FUNCTION
-
-FUNCTION (self TM_customer) XDeleteRow(d ui.Dialog, row INT) RETURNS()
-  UNUSED(self)
-  UNUSED(d)
-  DISPLAY SFMT("customer DeleteRow:%1", row)
-  DELETE FROM customer WHERE @customer_num = self.cust.customer_num
-END FUNCTION
-
 FUNCTION (self TM_customer) checkInterfaces()
   --dummy func to enable a compiler check until IMPLEMENTS is there
   DEFINE iAR I_AfterRow
   DEFINE iBR I_BeforeRow
-  --DEFINE iDR I_DeleteRow
   DEFINE iII I_InitInput
   DEFINE iIE I_OnEventInINPUT
   DEFINE iBF I_BeforeField
   DEFINE iAF I_AfterField
-  --DEFINE iIU I_InsertOrUpdate
   DEFINE iOA I_OnActionInINPUT
   MYASSERT(FALSE)
   LET iAR = self --the compiler checks if TM_customer implements I_AfterRow
   LET iBR = self --the compiler checks if TM_customer implements I_BeforeRow
-  --LET iDR = self --etc. etc.
   LET iAF = self
   LET iBF = self
   LET iII = self
@@ -243,7 +220,7 @@ FUNCTION MAIN()
       filterForm: "customers_singlerow",
       autoPhantom: TRUE, --tolerates missing FormFields/TableColumns in the forms
       addClickableImages: TRUE,
-      qualifiedNames:TRUE,
+      qualifiedNames:FALSE,
       hasUpdate: TRUE,
       hasAppend: TRUE,
       hasDelete: TRUE,
