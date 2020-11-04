@@ -405,10 +405,9 @@ END FUNCTION
 FUNCTION updateRecordInDB(
   recv reflect.Value, names T_INT_DICT, tabName STRING, qualified BOOLEAN)
   DEFINE keys DYNAMIC ARRAY OF STRING
-  DEFINE h base.SqlHandle
-  DEFINE sql, key_val STRING
+  DEFINE key_val STRING
   DEFINE i INT
-  LET h = base.SqlHandle.create()
+  VAR h = base.SqlHandle.create()
   LET keys = names.getKeys()
   VAR serial = getSerial(keys, tabName)
   MYASSERT(serial IS NOT NULL)
@@ -419,8 +418,8 @@ FUNCTION updateRecordInDB(
     END IF
     LET key_val = key_val, cutDot(keys[i]), " = ? "
   END FOR
-  LET sql =
-    SFMT("UPDATE %1 SET %2 WHERE %3=%4",
+  VAR sql
+    = SFMT("UPDATE %1 SET %2 WHERE %3=%4",
       tabName, key_val, cutDot(serial), serialVal.toString())
   DISPLAY "sql:", sql
   CALL h.prepare(sql)
@@ -430,6 +429,26 @@ FUNCTION updateRecordInDB(
     MYASSERT(fv IS NOT NULL)
     CALL h.setParameter(i, fv.toString())
   END FOR
+  TRY
+    CALL h.execute()
+  CATCH
+    DISPLAY "Error detected: ", SQLCA.SQLCODE
+  END TRY
+END FUNCTION
+
+FUNCTION deleteRecordInDB(
+  recv reflect.Value, names T_INT_DICT, tabName STRING, qualified BOOLEAN)
+  DEFINE keys DYNAMIC ARRAY OF STRING
+  LET keys = names.getKeys()
+  VAR serial = getSerial(keys, tabName)
+  MYASSERT(serial IS NOT NULL)
+  VAR serialVal = getRecursiveFieldByName(recv, serial, qualified)
+  VAR h = base.SqlHandle.create()
+  VAR sql
+    = SFMT("DELETE FROM %1 WHERE %2=%3",
+      tabName, cutDot(serial), serialVal.toString())
+  DISPLAY "sql:", sql
+  CALL h.prepare(sql)
   TRY
     CALL h.execute()
   CATCH

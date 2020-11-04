@@ -119,7 +119,8 @@ TYPE TM_SingleTableDA RECORD
   END RECORD,
   rowBounds DYNAMIC ARRAY OF STRING,
   browseFormTextOrig STRING,
-  inputTableNames T_INT_DICT
+  tableNamesINPUT T_INT_DICT,
+  tableNamesDA T_INT_DICT
 END RECORD
 
 TYPE T_fields DYNAMIC ARRAY OF RECORD
@@ -351,7 +352,7 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
         WHEN event = "ON APPEND"
           CALL self.handleAppendRow(arrval, d, names, filterActive)
         WHEN event = "ON DELETE"
-          CALL self.handleDeleteRow(arrval, d)
+          CALL self.handleDeleteRow(arrval, d, names)
         WHEN event = "ON ACTION filter"
           LET prevSQL = IIF(filterActive, sql, NULL)
           LET filterActive = TRUE
@@ -433,10 +434,24 @@ FUNCTION (self TM_SingleTableDA)
 END FUNCTION
 
 FUNCTION (self TM_SingleTableDA)
-  handleDeleteRow(
-  arrVal reflect.Value, d ui.Dialog)
-  DEFINE currRow INT
+  callDeleteRow(
+  el reflect.Value, d ui.Dialog, currRow INT, names T_INT_DICT)
   DEFINE ifvarDelRow I_DeleteRow
+  IF el.canAssignToVariable(ifvarDelRow) THEN
+    CALL el.assignToVariable(ifvarDelRow)
+    CALL ifvarDelRow.DeleteRow(d, currRow)
+  ELSE
+    VAR sqlDATableCount = self.tableNamesDA.getKeys().getLength()
+    MYASSERT(sqlDATableCount == 1)
+    VAR tabName = self.tableNamesDA.getKeys()[1]
+    CALL sql2array.deleteRecordInDB(el, names, tabName, self.o.qualifiedNames)
+  END IF
+END FUNCTION
+
+FUNCTION (self TM_SingleTableDA)
+  handleDeleteRow(
+  arrVal reflect.Value, d ui.Dialog, names T_INT_DICT)
+  DEFINE currRow INT
   DEFINE el reflect.Value
   LET currRow = d.getCurrentRow(self.o.browseRecord)
   LET int_flag = FALSE
@@ -451,11 +466,8 @@ FUNCTION (self TM_SingleTableDA)
         icon: "quest",
         dang: 0)
       == "yes" THEN
-      IF el.canAssignToVariable(ifvarDelRow) THEN
-        CALL el.assignToVariable(ifvarDelRow)
-        CALL ifvarDelRow.DeleteRow(d, currRow)
-      END IF
-      IF NOT int_flag AND NOT status THEN
+      CALL self.callDeleteRow(el, d, currRow, names)
+      IF NOT int_flag AND NOT status AND NOT sqlca.sqlcode THEN
         CALL arrval.deleteArrayElement(currRow)
       END IF
     ELSE
@@ -606,7 +618,8 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
   LET columnNames =
     utils.getInputColumnNamesAndTableNames(self.o.qualifiedNames)
   DISPLAY "columnNames:", util.JSON.stringify(columnNames)
-  RETURN self.describeFieldsINT(columnNames, trec, fields, "current form", NULL)
+  RETURN self.describeFieldsINT(
+    columnNames, trec, fields, "current form", NULL, self.tableNamesINPUT)
 END FUNCTION
 
 PRIVATE FUNCTION (self TM_SingleTableDA)
@@ -619,7 +632,7 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
   LET dict = utils.readNamesFromScreenRecord(rec, f42f, self.o.qualifiedNames)
   DISPLAY "describeFieldsForRecord:", util.JSON.stringify(dict)
   RETURN self.describeFieldsINT(
-    dict, trec, fields, SFMT("screen record '%1'", rec), rec)
+    dict, trec, fields, SFMT("screen record '%1'", rec), rec, self.tableNamesDA)
 END FUNCTION
 
 PRIVATE FUNCTION assignFieldFromType(
@@ -629,7 +642,7 @@ PRIVATE FUNCTION assignFieldFromType(
   name STRING,
   autoPhantom BOOLEAN,
   out T_INT_DICT,
-  inputTableNames T_INT_DICT,
+  tableNames T_INT_DICT,
   where STRING)
   DEFINE idx INT
   MYASSERT(name IS NOT NULL)
@@ -639,7 +652,7 @@ PRIVATE FUNCTION assignFieldFromType(
       LET fields[idx].name = name
       LET fields[idx].type = t.toString()
       VAR sqltabName = dict[name]
-      LET inputTableNames[sqltabName] = inputTableNames.getLength()
+      LET tableNames[sqltabName] = tableNames.getLength()
       CALL dict.remove(name)
       LET out[name] = idx --have the array field pos as value
     WHEN NOT autoPhantom
@@ -654,7 +667,8 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
   trec reflect.Type,
   fields T_fields,
   where STRING,
-  rec STRING)
+  rec STRING,
+  tableNames T_INT_DICT)
   RETURNS T_INT_DICT
   DEFINE name, subname STRING
   DEFINE out T_INT_DICT
@@ -663,8 +677,9 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
   DEFINE tf reflect.Type
   DEFINE qualified BOOLEAN = self.o.qualifiedNames
   CALL fields.clear()
-  CALL self.inputTableNames.clear()
+  CALL tableNames.clear()
   LET cnt = trec.getFieldCount()
+  VAR autoPhantom = self.o.autoPhantom
   FOR idx = 1 TO cnt
     LET name = trec.getFieldName(idx)
     LET tf = trec.getFieldType(idx)
@@ -672,29 +687,16 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
       DISPLAY "RECORD with name:", name
       LET subCnt = tf.getFieldCount()
       FOR subIdx = 1 TO subCnt
-        MYASSERT(tf.getFieldType(subIdx).getKind().equals(C_RECORD) == FALSE)
+        VAR subType = tf.getFieldType(subIdx)
+        MYASSERT(subType.getKind().equals(C_RECORD) == FALSE)
         LET subname = tf.getFieldName(subIdx)
         LET subname = IIF(qualified, SFMT("%1.%2", name, subname), subname)
         CALL assignFieldFromType(
-          fields,
-          tf.getFieldType(subIdx),
-          dict,
-          subname,
-          self.o.autoPhantom,
-          out,
-          self.inputTableNames,
-          where)
+          fields, subType, dict, subname, autoPhantom, out, tableNames, where)
       END FOR
     ELSE
       CALL assignFieldFromType(
-        fields,
-        tf,
-        dict,
-        name,
-        self.o.autoPhantom,
-        out,
-        self.inputTableNames,
-        where)
+        fields, tf, dict, name, autoPhantom, out, tableNames, where)
     END IF
   END FOR
   IF rec IS NOT NULL THEN
@@ -721,7 +723,7 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
       LET fields[j].type = "STRING"
     END FOR
   END IF
-  DISPLAY "inputTableNames:", util.JSON.stringify(self.inputTableNames)
+  DISPLAY "tableNames:", util.JSON.stringify(tableNames)
   RETURN out
 END FUNCTION
 
@@ -961,9 +963,9 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
   --we require that there is exclusively 1 sqlTabName is used
   --to generate an automatic INSERT/UPDATE sql statement based on
   --serial / PK column defs
-  VAR sqlInputTableCount = self.inputTableNames.getKeys().getLength()
+  VAR sqlInputTableCount = self.tableNamesINPUT.getKeys().getLength()
   MYASSERT(sqlInputTableCount == 1)
-  VAR tabName = self.inputTableNames.getKeys()[1]
+  VAR tabName = self.tableNamesINPUT.getKeys()[1]
   --DISPLAY "tabName:", tabName
   IF update THEN
     CALL updateRecordInDB(recordVal, names, tabName, self.o.qualifiedNames)

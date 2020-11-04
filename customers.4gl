@@ -131,7 +131,7 @@ FUNCTION (self TM_customer) XInsertOrUpdate(update BOOLEAN)
   END IF
 END FUNCTION
 
-FUNCTION (self TM_customer) DeleteRow(d ui.Dialog, row INT) RETURNS()
+FUNCTION (self TM_customer) XDeleteRow(d ui.Dialog, row INT) RETURNS()
   UNUSED(self)
   UNUSED(d)
   DISPLAY SFMT("customer DeleteRow:%1", row)
@@ -142,7 +142,7 @@ FUNCTION (self TM_customer) checkInterfaces()
   --dummy func to enable a compiler check until IMPLEMENTS is there
   DEFINE iAR I_AfterRow
   DEFINE iBR I_BeforeRow
-  DEFINE iDR I_DeleteRow
+  --DEFINE iDR I_DeleteRow
   DEFINE iII I_InitInput
   DEFINE iIE I_OnEventInINPUT
   DEFINE iBF I_BeforeField
@@ -152,7 +152,7 @@ FUNCTION (self TM_customer) checkInterfaces()
   MYASSERT(FALSE)
   LET iAR = self --the compiler checks if TM_customer implements I_AfterRow
   LET iBR = self --the compiler checks if TM_customer implements I_BeforeRow
-  LET iDR = self --etc. etc.
+  --LET iDR = self --etc. etc.
   LET iAF = self
   LET iBF = self
   LET iII = self
