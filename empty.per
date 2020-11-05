@@ -3,8 +3,8 @@ DATABASE stores
 LAYOUT (TEXT = "Empty")
 TABLE(HEIGHT=15 LINES)
 {
- X            XX
-[f000        |f001        ]
+ num  X        XX
+[num |x       |xx    ]
 }
 END END
 
@@ -14,8 +14,9 @@ empty
 ATTRIBUTES
 
 
-f000 = empty.x;
-f001 = empty.xx;
+num = empty.empty_num;
+x = empty.x;
+xx = empty.xx;
 
 INSTRUCTIONS
 SCREEN RECORD scr(empty.*)

@@ -4,11 +4,20 @@ SHORT CIRCUIT
 IMPORT reflect
 IMPORT util
 IMPORT os
+IMPORT FGL aui_const
 PUBLIC CONSTANT C_AFTER_FIELD = "AFTER FIELD"
 PUBLIC CONSTANT C_BEFORE_FIELD = "BEFORE FIELD"
 PUBLIC CONSTANT C_ON_ACTION = "ON ACTION"
 PUBLIC CONSTANT C_BEFORE_ROW = "BEFORE ROW"
 PUBLIC CONSTANT C_AFTER_ROW = "AFTER ROW"
+--aui_const has no PhantomColumn...and the other 2 are also missing
+CONSTANT TAG_PhantomColumn = "PhantomColumn"
+CONSTANT TAG_RecordView = "RecordView"
+CONSTANT TAG_Link = "Link"
+
+CONSTANT C_RECORD = "RECORD"
+CONSTANT C_ARRAY = "ARRAY"
+CONSTANT C_STORES_SCH = "stores.sch"
 
 PUBLIC TYPE T_STRING_ARR DYNAMIC ARRAY OF STRING
 PUBLIC TYPE T_STRING_DICT DICTIONARY OF STRING
@@ -75,11 +84,11 @@ FUNCTION printRVInt(title STRING, val reflect.Value, indent STRING)
     val.toString()
   LET indent = indent, "  "
   CASE
-    WHEN t.getKind() == "RECORD"
+    WHEN t.getKind() == C_RECORD
       FOR i = 1 TO t.getFieldCount()
         CALL printRVInt(t.getFieldName(i), val.getField(i), indent)
       END FOR
-    WHEN t.getKind() == "ARRAY"
+    WHEN t.getKind() == C_ARRAY
       IF val.getLength() == 0 THEN
         DISPLAY indent, "[]"
       ELSE
@@ -99,9 +108,9 @@ FUNCTION getArrayRecField(
   DEFINE t, trec reflect.Type
   DEFINE el, field reflect.Value
   LET t = arrVal.getType()
-  MYASSERT(t.getKind() == "ARRAY")
+  MYASSERT(t.getKind() == C_ARRAY)
   LET trec = t.getElementType()
-  MYASSERT(trec.getKind() == "RECORD")
+  MYASSERT(trec.getKind() == C_RECORD)
   MYASSERT(idx >= 1 AND idx <= arrVal.getLength())
   LET el = arrVal.getArrayElement(idx)
   IF (field := el.getFieldByName(member)) IS NULL THEN
@@ -170,8 +179,8 @@ FUNCTION copyRecord(src reflect.Value, dest reflect.Value)
   --DISPLAY src.toString()
   VAR tsrc = src.getType()
   VAR tdst = dest.getType()
-  MYASSERT(tsrc.getKind() == "RECORD")
-  MYASSERT(tdst.getKind() == "RECORD")
+  MYASSERT(tsrc.getKind() == C_RECORD)
+  MYASSERT(tdst.getKind() == C_RECORD)
   {
   IF tdst.isAssignableFrom(tsrc) THEN
     --both src and dest have the *same* RECORD type:
@@ -203,8 +212,8 @@ FUNCTION copyRecordByName(src reflect.Value, dest reflect.Value)
   --DISPLAY src.toString()
   VAR tsrc = src.getType()
   VAR tdst = dest.getType()
-  MYASSERT(tsrc.getKind() == "RECORD")
-  MYASSERT(tdst.getKind() == "RECORD")
+  MYASSERT(tsrc.getKind() == C_RECORD)
+  MYASSERT(tdst.getKind() == C_RECORD)
   IF tdst.isAssignableFrom(tsrc) THEN
     --both src and dest have the *same* RECORD type:
     --you should rather use a direct RECORD assignment
@@ -242,12 +251,12 @@ FUNCTION copyArrayOfRecord(src reflect.Value, dest reflect.Value)
   VAR tdst = dest.getType()
   --DISPLAY src.toString() --not working, JSON would be cool
   --DISPLAY "kind:",tsrc.getKind(),tsrc.toString()
-  MYASSERT(tsrc.getKind() == "ARRAY")
-  MYASSERT(tdst.getKind() == "ARRAY")
+  MYASSERT(tsrc.getKind() == C_ARRAY)
+  MYASSERT(tdst.getKind() == C_ARRAY)
   VAR trecsrc = tsrc.getElementType()
   VAR trecdst = tdst.getElementType()
-  MYASSERT(trecsrc.getKind() == "RECORD")
-  MYASSERT(trecdst.getKind() == "RECORD")
+  MYASSERT(trecsrc.getKind() == C_RECORD)
+  MYASSERT(trecdst.getKind() == C_RECORD)
   IF trecdst.toString() == trecsrc.toString() THEN
     CALL myerrAndStackTrace(
       SFMT("RECORD types are equal (%1): use the build in copyTo() method of ARRAY instead of this function (performance)",
@@ -301,12 +310,12 @@ FUNCTION copyArrayOfRecordByName(src reflect.Value, dest reflect.Value)
   VAR tdst = dest.getType()
   --DISPLAY src.toString() --not working, JSON would be cool
   --DISPLAY "kind:",tsrc.getKind(),tsrc.toString()
-  MYASSERT(tsrc.getKind() == "ARRAY")
-  MYASSERT(tdst.getKind() == "ARRAY")
+  MYASSERT(tsrc.getKind() == C_ARRAY)
+  MYASSERT(tdst.getKind() == C_ARRAY)
   VAR trecsrc = tsrc.getElementType()
   VAR trecdst = tdst.getElementType()
-  MYASSERT(trecsrc.getKind() == "RECORD")
-  MYASSERT(trecdst.getKind() == "RECORD")
+  MYASSERT(trecsrc.getKind() == C_RECORD)
+  MYASSERT(trecdst.getKind() == C_RECORD)
   IF trecdst.toString() == trecsrc.toString() THEN
     CALL myerrAndStackTrace(
       SFMT("RECORD types are equal (%1): use the build in copyTo() method of ARRAY instead of this function (performance)",
@@ -379,12 +388,13 @@ FUNCTION scanTable(t om.DomNode, qualified BOOLEAN) RETURNS T_STRING_DICT
   DEFINE name STRING
   DEFINE dict T_STRING_DICT
   FOR loop = 1 TO 2
-    VAR l2 = t.selectByTagName(IIF(loop == 1, "TableColumn", "PhantomColumn"))
+    VAR l2
+      = t.selectByTagName(IIF(loop == 1, TAG_TableColumn, TAG_PhantomColumn))
     FOR i = 1 TO l2.getLength()
       VAR tc = l2.item(i)
       LET name =
-        IIF(qualified, tc.getAttribute("name"), tc.getAttribute("colName"))
-      LET dict[name] = tc.getAttribute("sqlTabName")
+        IIF(qualified, tc.getAttribute(A_name), tc.getAttribute(A_colName))
+      LET dict[name] = tc.getAttribute(A_sqlTabName)
     END FOR
   END FOR
   RETURN dict
@@ -410,7 +420,9 @@ FUNCTION readNamesFromScreenRecord(
     LET root = frmO.getNode()
   END IF
   --first search: Table
-  VAR l = root.selectByPath(SFMT('//Table[@tabName="%1"]', screenRec))
+  VAR l
+    = root.selectByPath(
+      SFMT('//' || TAG_Table || '[@' || A_tabName || '="%1"]', screenRec))
   IF l.getLength() == 1 THEN
     RETURN scanTable(l.item(1), qualified)
   END IF
@@ -430,25 +442,27 @@ FUNCTION scanRecordView(
   DEFINE name STRING
   LET fieldIdDict = getFieldIds(root)
   --DISPLAY "fieldIdDict:", util.JSON.stringify(fieldIdDict)
-  VAR l = root.selectByPath(SFMT('//RecordView[@tabName="%1"]', screenRec))
+  VAR l
+    = root.selectByPath(
+      SFMT('//' || TAG_RecordView || '[@' || A_tabName || '="%1"]', screenRec))
   IF l.getLength() == 0 THEN
     CALL myerrAndStackTrace(
       SFMT("Can't find screen record '%1' in '%2'", screenRec, f42f))
   END IF
   VAR rv = l.item(1)
-  LET l = rv.selectByTagName("Link")
+  LET l = rv.selectByTagName(TAG_Link)
   FOR i = 1 TO l.getLength()
     VAR link = l.item(i)
-    VAR fieldId = link.getAttribute("fieldIdRef")
+    VAR fieldId = link.getAttribute(A_fieldIdRef)
     VAR node = fieldIdDict[fieldId]
     IF qualified THEN
-      LET name = node.getAttribute("name")
+      LET name = node.getAttribute(A_name)
     ELSE
-      LET name = link.getAttribute("colName")
-      MYASSERT(name == node.getAttribute("colName"))
+      LET name = link.getAttribute(A_colName)
+      MYASSERT(name == node.getAttribute(A_colName))
     END IF
     MYASSERT(name IS NOT NULL)
-    LET dict[name] = node.getAttribute("sqlTabName")
+    LET dict[name] = node.getAttribute(A_sqlTabName)
   END FOR
   RETURN dict
 END FUNCTION
@@ -462,8 +476,8 @@ PRIVATE FUNCTION addFieldNamesToDict(
   FOR i = 1 TO len
     VAR node = l.item(i)
     LET name =
-      IIF(qualified, node.getAttribute("name"), node.getAttribute("colName"))
-    LET fieldsDict[name] = node.getAttribute("sqlTabName")
+      IIF(qualified, node.getAttribute(A_name), node.getAttribute(A_colName))
+    LET fieldsDict[name] = node.getAttribute(A_sqlTabName)
   END FOR
 END FUNCTION
 
@@ -476,16 +490,16 @@ PRIVATE FUNCTION addFullNamesByFieldId(
   VAR len = l.getLength()
   FOR i = 1 TO len
     VAR node = l.item(i)
-    --VAR name = node.getAttribute("name")
-    VAR fieldId = node.getAttribute("fieldId")
+    --VAR name = node.getAttribute(A_name)
+    VAR fieldId = node.getAttribute(A_fieldId)
     LET dict[fieldId] = node
   END FOR
 END FUNCTION
 
 PRIVATE FUNCTION getFieldIds(root om.DomNode) RETURNS T_NODE_DICT
   DEFINE dict T_NODE_DICT
-  CALL addFullNamesByFieldId(dict, root, "FormField")
-  CALL addFullNamesByFieldId(dict, root, "Matrix")
+  CALL addFullNamesByFieldId(dict, root, TAG_FormField)
+  CALL addFullNamesByFieldId(dict, root, TAG_Matrix)
   RETURN dict
 END FUNCTION
 
@@ -496,10 +510,10 @@ FUNCTION getInputColumnNamesAndTableNames(
   DEFINE namesdict T_STRING_DICT
   DEFINE root om.DomNode
   LET root = ui.Window.getCurrent().getForm().getNode()
-  CALL addFieldNamesToDict(namesdict, root, "TableColumn", qualified)
-  CALL addFieldNamesToDict(namesdict, root, "PhantomColumn", qualified)
-  CALL addFieldNamesToDict(namesdict, root, "FormField", qualified)
-  CALL addFieldNamesToDict(namesdict, root, "Matrix", qualified)
+  CALL addFieldNamesToDict(namesdict, root, TAG_TableColumn, qualified)
+  CALL addFieldNamesToDict(namesdict, root, TAG_PhantomColumn, qualified)
+  CALL addFieldNamesToDict(namesdict, root, TAG_FormField, qualified)
+  CALL addFieldNamesToDict(namesdict, root, TAG_Matrix, qualified)
   RETURN namesdict
 END FUNCTION
 
@@ -672,25 +686,25 @@ FUNCTION readSchema(schFile STRING)
 END FUNCTION
 
 FUNCTION isSerialColumnForTable(colname STRING, tabname STRING)
-  CALL readSchema("stores.sch")
+  CALL readSchema(C_STORES_SCH)
   VAR schv T_schemaVal
   LET schv = m_schema[tabname][colname]
   RETURN schv.isSerial
 END FUNCTION
 
 FUNCTION getDataTypeStrOfColumn(colname STRING, tabname STRING)
-  CALL readSchema("stores.sch")
+  CALL readSchema(C_STORES_SCH)
   VAR schv T_schemaVal
   LET schv = m_schema[tabname][colname]
   RETURN schv.typeStr
 END FUNCTION
 
 FUNCTION getColumnsForTable(tabname STRING) RETURNS T_INT_DICT
-  CALL readSchema("stores.sch")
+  CALL readSchema(C_STORES_SCH)
   RETURN m_colsByName[tabname]
 END FUNCTION
 
 FUNCTION getColumnForTableByPos(tabname STRING, pos INT) RETURNS STRING
-  CALL readSchema("stores.sch")
+  CALL readSchema(C_STORES_SCH)
   RETURN m_colsByPos[tabname][pos]
 END FUNCTION

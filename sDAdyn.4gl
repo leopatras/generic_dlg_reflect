@@ -7,6 +7,7 @@ IMPORT os
 IMPORT FGL utils
 IMPORT FGL fgldialog
 IMPORT FGL sql2array
+IMPORT FGL aui_const
 CONSTANT C_RECORD = "RECORD"
 --the I_ prefix indicates an interface
 
@@ -91,6 +92,7 @@ PUBLIC TYPE T_SingleTableDAOptions RECORD
     BOOLEAN --if set field names are referenced by "tableName.columnName",
 --and hence also the names in the ARRAY
 --this means RECORDs *must* have sub RECORD names *matching* the table names/aliases
+--, multiRowSelection BOOLEAN
 END RECORD
 
 --PUBLIC TYPE T_MDOptions RECORD
@@ -484,11 +486,11 @@ PRIVATE FUNCTION appendClickableImageColumn(
   MYASSERT(t IS NOT NULL)
   MYASSERT(colName IS NOT NULL)
   MYASSERT(actionName IS NOT NULL)
-  LET tc = t.createChild("TableColumn")
+  LET tc = t.createChild(TAG_TableColumn)
   CALL tc.setAttribute("colName", colName)
   CALL tc.setAttribute("name", SFMT("formonly.%1", colName))
   CALL tc.setAttribute("sqlTabName", "formonly")
-  LET img = tc.createChild("Image")
+  LET img = tc.createChild(TAG_Image)
   CALL img.setAttribute("width", "2")
   CALL img.setAttribute("action", actionName)
 END FUNCTION
