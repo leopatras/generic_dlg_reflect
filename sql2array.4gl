@@ -367,6 +367,7 @@ FUNCTION insertRecordIntoDB(
   DEFINE sql, key, cols, quest STRING
   DEFINE fv, svalue reflect.Value
   DEFINE i INT
+  WHENEVER ERROR RAISE
   LET h = base.SqlHandle.create()
   LET keys = names.getKeys()
   VAR serial = getSerial(keys, tabName)
@@ -388,18 +389,15 @@ FUNCTION insertRecordIntoDB(
     DISPLAY "setParameter:", fv.toString()
     CALL h.setParameter(i, fv.toString())
   END FOR
-  TRY
-    CALL h.execute()
-    IF serial IS NOT NULL THEN
-      LET fv = getRecursiveFieldByName(recv, serial, qualified)
-      MYASSERT(fv IS NOT NULL)
-      LET svalue = reflect.Value.valueOf(sqlca.sqlerrd[2])
-      MYASSERT(fv.getType().isAssignableFrom(svalue.getType()))
-      CALL fv.set(svalue)
-    END IF
-  CATCH
-    DISPLAY "Error detected: ", SQLCA.SQLCODE
-  END TRY
+  CALL h.execute()
+  IF serial IS NOT NULL THEN
+    LET fv = getRecursiveFieldByName(recv, serial, qualified)
+    MYASSERT(fv IS NOT NULL)
+    LET svalue = reflect.Value.valueOf(sqlca.sqlerrd[2])
+    MYASSERT(fv.getType().isAssignableFrom(svalue.getType()))
+    CALL fv.set(svalue)
+  END IF
+  WHENEVER ERROR STOP
 END FUNCTION
 
 FUNCTION updateRecordInDB(
@@ -407,6 +405,7 @@ FUNCTION updateRecordInDB(
   DEFINE keys DYNAMIC ARRAY OF STRING
   DEFINE key_val STRING
   DEFINE i INT
+  WHENEVER ERROR RAISE
   VAR h = base.SqlHandle.create()
   LET keys = names.getKeys()
   VAR serial = getSerial(keys, tabName)
@@ -429,16 +428,14 @@ FUNCTION updateRecordInDB(
     MYASSERT(fv IS NOT NULL)
     CALL h.setParameter(i, fv.toString())
   END FOR
-  TRY
-    CALL h.execute()
-  CATCH
-    DISPLAY "Error detected: ", SQLCA.SQLCODE
-  END TRY
+  CALL h.execute()
+  WHENEVER ERROR STOP
 END FUNCTION
 
 FUNCTION deleteRecordInDB(
   recv reflect.Value, names T_INT_DICT, tabName STRING, qualified BOOLEAN)
   DEFINE keys DYNAMIC ARRAY OF STRING
+  WHENEVER ERROR RAISE
   LET keys = names.getKeys()
   VAR serial = getSerial(keys, tabName)
   MYASSERT(serial IS NOT NULL)
@@ -449,9 +446,6 @@ FUNCTION deleteRecordInDB(
       tabName, cutDot(serial), serialVal.toString())
   DISPLAY "sql:", sql
   CALL h.prepare(sql)
-  TRY
-    CALL h.execute()
-  CATCH
-    DISPLAY "Error detected: ", SQLCA.SQLCODE
-  END TRY
+  CALL h.execute()
+  WHENEVER ERROR STOP
 END FUNCTION
