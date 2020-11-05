@@ -5,13 +5,13 @@ export FGLPROFILE=fglprofile
 %.42m: %.4gl 
 	fglcomp -r -M -Wall -Wno-stdsql -I$(FGLDIR)/src $*
 
-MODULES = $(patsubst %.4gl, %.42m, $(wildcard *.4gl))
+ALLMODULES = $(patsubst %.4gl, %.42m, $(wildcard *.4gl))
+MODULES=$(filter-out utils.42m,$(ALLMODULES))
 FORMS   = $(patsubst %.per, %.42f, $(wildcard *.per))
 
-all: $(FORMS) $(MODULES)
+all: $(FORMS) utils.42m $(MODULES)
 
-
-$(FORMS) $(MODULES): cols_customer.4gl aui_const.4gl stores.sch
+$(FORMS) $(MODULES): stores.sch cols_customer.4gl
 
 run: stores.sch $(MODULES) $(FORMS)
 	fglrun customers
@@ -36,11 +36,18 @@ test: stores.sch $(MODULES)
 sql2array: stores.sch sql2array.42m utils.42m
 	fglrun sql2array
 
-stores.sch:
-	fglcomp -M mkstores && fglrun mkstores
+stores.sch: utils.42m
+	stores/mkstores
+
+utils.42m: aui_const.4gl
 
 clean::
-	$(MAKE) -C tools
+	$(MAKE) -C stores clean
+	$(MAKE) -C tools clean
 	$(RM) -f stores.dbs stores.sch
 	$(RM) -f *.42? cols_customer.4gl aui_const.4gl
+
+echo:
+	@echo "MODULES:$(MODULES)"
+	@echo "ALLMODULES:$(ALLMODULES)"
 

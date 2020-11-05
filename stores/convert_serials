@@ -1,0 +1,21 @@
+#!/bin/bash
+realpath() {
+    [[ $1 = /* ]] && echo "$1" || echo "$PWD/${1#./}"
+}
+
+SCRIPT_NAME=`realpath $0`
+STORESDIR=`dirname $SCRIPT_NAME` 
+export FGLLDPATH="$PWD"
+export FGLDBPATH="$PWD"
+export DBPATH="$PWD"
+export FGLRESOURCEDIR="$PWD"
+#echo "I am in pwd:`pwd`, DBPATH:$DBPATH, FGLLDPATH:$FGLLDPATH"
+#we recompile everything always: hence avoid version clashes
+#we stay in the top dir because of utils
+fglcomp -r -M -Wall -Wno-stdsql $STORESDIR/convert_serials.4gl
+if [ $? -ne 0 ] ; then
+  exit 1
+fi
+#popd > /dev/null
+export STORESDIR
+exec fglrun convert_serials.42m "$@" 

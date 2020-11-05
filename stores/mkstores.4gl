@@ -1,8 +1,21 @@
 IMPORT FGL fgldbutl
+IMPORT os
 
 MAIN
+  IF NOT os.Path.exists("LICENSE") THEN
+    CALL myerr("must run mkstores being in the topdir")
+  END IF
   CALL createDatabase()
 END MAIN
+
+FUNCTION myerr(errstr STRING)
+  DEFINE ch base.Channel
+  LET ch = base.Channel.create()
+  CALL ch.openFile("<stderr>", "w")
+  CALL ch.writeLine(SFMT("ERROR:%1", errstr))
+  CALL ch.close()
+  EXIT PROGRAM 1
+END FUNCTION
 
 FUNCTION createDatabase()
   DEFINE appdir, src, db STRING
@@ -103,21 +116,30 @@ FUNCTION createDatabase()
 
   LET appdir = NVL(fgl_getenv("FGLAPPDIR"), ".")
   BEGIN WORK
-  LOAD FROM appdir || "/stores.exp/customer.unl" INSERT INTO CUSTOMER
-  LOAD FROM appdir || "/stores.exp/cust_ex.unl" INSERT INTO CUST_EX
-  LOAD FROM appdir || "/stores.exp/items.unl" INSERT INTO ITEMS
-  LOAD FROM appdir || "/stores.exp/manufact.unl" INSERT INTO MANUFACT
-  LOAD FROM appdir || "/stores.exp/orders.unl" INSERT INTO ORDERS
-  LOAD FROM appdir || "/stores.exp/state.unl" INSERT INTO STATE
-  LOAD FROM appdir || "/stores.exp/stock.unl" INSERT INTO STOCK
+  LOAD FROM appdir || "/stores/customer.unl" INSERT INTO CUSTOMER
+  LOAD FROM appdir || "/stores/cust_ex.unl" INSERT INTO CUST_EX
+  LOAD FROM appdir || "/stores/items.unl" INSERT INTO ITEMS
+  LOAD FROM appdir || "/stores/manufact.unl" INSERT INTO MANUFACT
+  LOAD FROM appdir || "/stores/orders.unl" INSERT INTO ORDERS
+  LOAD FROM appdir || "/stores/state.unl" INSERT INTO STATE
+  LOAD FROM appdir || "/stores/stock.unl" INSERT INTO STOCK
   COMMIT WORK
   DISCONNECT ALL
   IF haveProfile THEN
-    RUN "fgldbsch -db stores"
+    CALL checkRUN("fgldbsch -db stores")
   ELSE
-    RUN SFMT("fgldbsch -dv %1 -of stores -db stores.dbs", driver)
+    CALL checkRUN(sfmt("fgldbsch -dv %1 -of stores -db stores.dbs", driver))
   END IF
+  DISPLAY "created stores db"
   IF fgldbutl.db_get_database_type() == "PGS" THEN
-    RUN "fglcomp convert_serials &&  fglrun  convert_serials"
+    CALL checkRUN("stores/convert_serials")
+  END IF
+END FUNCTION
+
+FUNCTION checkRUN(cmd STRING)
+  DEFINE code INT
+  RUN cmd RETURNING code
+  IF code THEN
+    CALL myerr(sfmt("command '%1' failed.",cmd))
   END IF
 END FUNCTION

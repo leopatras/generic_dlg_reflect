@@ -1,0 +1,18 @@
+#!/bin/bash
+realpath() {
+    [[ $1 = /* ]] && echo "$1" || echo "$PWD/${1#./}"
+}
+
+SCRIPT_NAME=`realpath $0`
+STORESDIR=`dirname $SCRIPT_NAME` 
+export FGLLDPATH="$PWD"
+pushd "$PWD" >/dev/null
+cd $STORESDIR
+#we recompile everything always: hence avoid version clashes
+fglcomp -r -M -Wall -Wno-stdsql  mkstores.4gl
+if [ $? -ne 0 ] ; then
+  exit 1
+fi
+popd > /dev/null
+export STORESDIR
+exec fglrun $STORESDIR/mkstores.42m "$@" 

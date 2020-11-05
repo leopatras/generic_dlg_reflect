@@ -1,4 +1,4 @@
-&include "myassert.inc"
+&include "../myassert.inc"
 IMPORT util
 IMPORT FGL utils
 SCHEMA stores
@@ -66,6 +66,7 @@ MAIN
   MYASSERT(n == nOrders)
   SELECT COUNT(*) INTO n FROM items
   MYASSERT(n == nItems)
+  DISPLAY "convert_serials done."
 END MAIN
 
 FUNCTION fetch_customers(customers T_customers)
