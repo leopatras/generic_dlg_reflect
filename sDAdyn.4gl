@@ -439,6 +439,7 @@ FUNCTION (self TM_SingleTableDA)
   callDeleteRow(
   el reflect.Value, d ui.Dialog, currRow INT, names T_INT_DICT)
   DEFINE ifvarDelRow I_DeleteRow
+  WHENEVER ERROR RAISE
   IF el.canAssignToVariable(ifvarDelRow) THEN
     CALL el.assignToVariable(ifvarDelRow)
     CALL ifvarDelRow.DeleteRow(d, currRow)
@@ -448,6 +449,7 @@ FUNCTION (self TM_SingleTableDA)
     VAR tabName = self.tableNamesDA.getKeys()[1]
     CALL sql2array.deleteRecordInDB(el, names, tabName, self.o.qualifiedNames)
   END IF
+  WHENEVER ERROR STOP
 END FUNCTION
 
 FUNCTION (self TM_SingleTableDA)
@@ -468,10 +470,19 @@ FUNCTION (self TM_SingleTableDA)
         icon: "quest",
         dang: 0)
       == "yes" THEN
-      CALL self.callDeleteRow(el, d, currRow, names)
-      IF NOT int_flag AND NOT status AND NOT sqlca.sqlcode THEN
+      TRY
+        BEGIN WORK
+        CALL self.callDeleteRow(el, d, currRow, names)
+        COMMIT WORK
         CALL arrval.deleteArrayElement(currRow)
-      END IF
+      CATCH
+        CALL fgl_winMessage(
+          title: "The deletion failed failed",
+          SFMT("status:%1,err_get:%2", status, err_get(status)),
+          "error")
+        ROLLBACK WORK
+        LET int_flag = TRUE
+      END TRY
     ELSE
       --inform the dyn dialog that no deletion should occur
       LET int_flag = TRUE
@@ -949,31 +960,33 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
   DEFINE ifvarIU I_InsertOrUpdate
   DEFINE ifvarIURow I_InsertOrUpdateOfRow
   DEFINE row INT
+  WHENEVER ERROR RAISE --propagate error to the caller
   IF recordVal.canAssignToVariable(ifvarIU) THEN
     CALL recordVal.assignToVariable(ifvarIU)
     CALL ifvarIU.InsertOrUpdate(update)
-    RETURN
   ELSE
     IF self.o.delegateDA IS NOT NULL
       AND self.o.delegateDA.canAssignToVariable(ifvarIURow) THEN
       CALL self.o.delegateDA.assignToVariable(ifvarIURow)
       LET row = self.dlgDA.getCurrentRow(self.o.browseRecord)
       CALL ifvarIURow.InsertOrUpdateOfRow(update, row)
-      RETURN
+    ELSE
+      --we require that there is exclusively 1 sqlTabName is used
+      --to generate an automatic INSERT/UPDATE sql statement based on
+      --serial / PK column defs
+      VAR sqlInputTableCount = self.tableNamesINPUT.getKeys().getLength()
+      MYASSERT(sqlInputTableCount == 1)
+      VAR tabName = self.tableNamesINPUT.getKeys()[1]
+      --DISPLAY "tabName:", tabName
+      IF update THEN
+        CALL updateRecordInDB(recordVal, names, tabName, self.o.qualifiedNames)
+      ELSE
+        CALL insertRecordIntoDB(
+          recordVal, names, tabName, self.o.qualifiedNames)
+      END IF
     END IF
   END IF
-  --we require that there is exclusively 1 sqlTabName is used
-  --to generate an automatic INSERT/UPDATE sql statement based on
-  --serial / PK column defs
-  VAR sqlInputTableCount = self.tableNamesINPUT.getKeys().getLength()
-  MYASSERT(sqlInputTableCount == 1)
-  VAR tabName = self.tableNamesINPUT.getKeys()[1]
-  --DISPLAY "tabName:", tabName
-  IF update THEN
-    CALL updateRecordInDB(recordVal, names, tabName, self.o.qualifiedNames)
-  ELSE
-    CALL insertRecordIntoDB(recordVal, names, tabName, self.o.qualifiedNames)
-  END IF
+  WHENEVER ERROR STOP
 END FUNCTION
 
 --implents an INPUT with a dynamic dialog and calls
@@ -1022,7 +1035,7 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
     CALL recordVal.assignToVariable(ifvarII)
     CALL ifvarII.InitINPUT(self, d)
   END IF
-
+  LABEL again:
   WHILE TRUE
     LET ev = d.nextEvent()
     LET curr = d.getCurrentItem()
@@ -1085,8 +1098,20 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
     -- copy values from Input to DisplayArray and to the backing RECORD
     CALL copyDlgValues2RecValues(
       recordVal, trec, d, names, self.dlgDA, browseNames, self.o.qualifiedNames)
-    CALL self.handleInsertOrUpdate(title == "Update", recordVal, names)
-    CALL printRV("recordVal", recordVal)
+    TRY
+      BEGIN WORK
+      CALL self.handleInsertOrUpdate(title == "Update", recordVal, names)
+      COMMIT WORK
+    CATCH
+      --CALL printRV("recordVal After Insert", recordVal)
+      CALL fgl_winMessage(
+        title: SFMT("The %1 failed", title),
+        SFMT("status:%1,err_get:%2", status, err_get(status)),
+        "error")
+      ROLLBACK WORK
+      --CALL fgl_winMessage(title: sfmt("The %1 failed",title), message: sqlca.sqlerrm,icon: "error")
+      GOTO again
+    END TRY
     --TODO: check SQL error here
     --we may have got an update in the insert (serial) so we need to sync the record
     --to the DA dialog values
