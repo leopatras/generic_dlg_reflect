@@ -1,4 +1,4 @@
-&include "myassert.inc"
+&include "../myassert.inc"
 IMPORT os
 IMPORT util
 

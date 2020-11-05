@@ -19,10 +19,10 @@ run: stores.sch $(MODULES) $(FORMS)
 test.42m: utils.42m
 
 cols_customer.4gl: stores.sch
-	fglcomp -M -Wall colnamegen && fglrun colnamegen stores.sch customer cols_customer.4gl
+	tools/gen_col_names stores.sch customer cols_customer.4gl
 
-aui_const.4gl: gen_aui_const.4gl
-	fglcomp -M -Wall gen_aui_const && fglrun gen_aui_const
+aui_const.4gl:
+	tools/gen_aui_const
 
 sDAdyn.42m: utils.42m sql2array.42m
 
@@ -40,6 +40,7 @@ stores.sch:
 	fglcomp -M mkstores && fglrun mkstores
 
 clean::
+	$(MAKE) -C tools
 	$(RM) -f stores.dbs stores.sch
 	$(RM) -f *.42? cols_customer.4gl aui_const.4gl
 

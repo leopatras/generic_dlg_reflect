@@ -1,11 +1,10 @@
---IMPORT utils
 MAIN
   DEFINE ch, out base.Channel
   DEFINE tabname, colname STRING
   DEFINE open BOOLEAN
   DEFINE x, y, z INT
   IF num_args() <> 3 THEN
-    DISPLAY "usage: colnamegen <.sch-file> <table-name> <out.4gl>"
+    DISPLAY "usage: gen_col_names <.sch-file> <table-name> <out.4gl>"
     EXIT PROGRAM 1
   END IF
   LET ch = base.Channel.create()
