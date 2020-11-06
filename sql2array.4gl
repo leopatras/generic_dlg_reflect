@@ -395,8 +395,6 @@ FUNCTION re_read_data(
     END IF
     LET cols = cols, cutDot(keys[i])
   END FOR
-  COMMIT WORK
-  BEGIN WORK
   VAR h = base.SqlHandle.create()
   VAR sql
     = SFMT("SELECT %1 FROM %2 WHERE %3=%4",
