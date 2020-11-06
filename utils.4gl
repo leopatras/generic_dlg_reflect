@@ -540,6 +540,18 @@ FUNCTION readNamesFromScreenRecord(
   RETURN scanRecordView(root, screenRec, f42f, qualified)
 END FUNCTION
 
+FUNCTION getAllRealInputtableFieldNames(
+  f42f STRING,qualified BOOLEAN) RETURNS T_STRING_ARR
+  DEFINE doc om.DomDocument
+  DEFINE namesdict T_STRING_DICT
+  MYASSERT((doc := om.DomDocument.createFromXmlFile(f42f)) IS NOT NULL)
+  VAR root = doc.getDocumentElement()
+  CALL addFieldNamesToDict(namesdict, root, TAG_TableColumn, qualified)
+  CALL addFieldNamesToDict(namesdict, root, TAG_FormField, qualified)
+  CALL addFieldNamesToDict(namesdict, root, TAG_Matrix, qualified)
+  RETURN namesdict.getKeys()
+END FUNCTION
+
 FUNCTION scanRecordView(
   root om.DomNode, screenRec STRING, f42f STRING, qualified BOOLEAN)
   DEFINE dict T_STRING_DICT

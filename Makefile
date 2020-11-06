@@ -4,7 +4,7 @@ export FGLPROFILE=fglprofile
 	fglform -M $<
 
 %.42m: %.4gl 
-	fglcomp -r -M -Wall -Wno-stdsql -I$(FGLDIR)/src $*
+	fglcomp -r -M -Wall -Wno-stdsql $*
 
 ALLMODULES = $(patsubst %.4gl, %.42m, $(wildcard *.4gl))
 MODULES=$(filter-out utils.42m,$(ALLMODULES))
@@ -19,8 +19,9 @@ run: all stores.sch $(MODULES) $(FORMS)
 
 test.42m: utils.42m
 
-cols_customer.4gl: stores.sch
-	tools/gen_col_names stores.sch customer cols_customer.4gl
+cols_customer.4gl: customers.42f
+	#tools/gen_col_names stores.sch customer cols_customer.4gl
+	tools/gen_form_names customers.42f cols_customer.4gl
 
 aui_const.4gl:
 	tools/gen_aui_const

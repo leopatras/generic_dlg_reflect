@@ -1,3 +1,4 @@
+--generator to create CONSTANTs for all column names of a table in a schema file
 MAIN
   DEFINE ch, out base.Channel
   DEFINE tabname, colname STRING

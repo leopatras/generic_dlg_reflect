@@ -1,3 +1,5 @@
+--generator to create CONSTANTs for AUI attribute and tag names
+--in a filed called "aui_const.4gl" to enable auto completion
 &include "../myassert.inc"
 IMPORT os
 IMPORT util
@@ -33,7 +35,8 @@ PRIVATE FUNCTION openAUIxa()
   DEFINE doc om.DomDocument
   LET doc = om.DomDocument.createFromXmlFile(getAUIxa())
   IF doc IS NULL THEN
-    CALL myerrAndStackTrace(SFMT("can't read aui definition file %1", getAUIxa()))
+    CALL myerrAndStackTrace(
+      SFMT("can't read aui definition file %1", getAUIxa()))
   END IF
   LET m_auiRoot = doc.getDocumentElement()
 END FUNCTION
@@ -86,7 +89,7 @@ PRIVATE FUNCTION get_xpath_attribute(root, xpath, attrName)
   DEFINE len INTEGER
   LET nodelist = root.selectByPath(xpath)
   LET len = nodelist.getLength()
-  MYASSERT(len==1)
+  MYASSERT(len == 1)
   LET node = nodelist.item(1)
   RETURN node.getAttribute(attrName)
 END FUNCTION
@@ -114,7 +117,11 @@ END FUNCTION
 PRIVATE FUNCTION get_volatile_aui_attrs(arr)
   DEFINE arr DYNAMIC ARRAY OF STRING
   RETURN get_name_list(
-    m_auiRoot, "/AuiDef/AuiAttrDefList/AuiAttrDef[@volatile=\"1\"]", arr, FALSE, TRUE)
+    m_auiRoot,
+    "/AuiDef/AuiAttrDefList/AuiAttrDef[@volatile=\"1\"]",
+    arr,
+    FALSE,
+    TRUE)
 END FUNCTION
 
 PRIVATE FUNCTION get_volatile_aui_tags(arr)
