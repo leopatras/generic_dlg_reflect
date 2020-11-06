@@ -1,3 +1,4 @@
+.PRECIOUS: %.4gl
 export FGLPROFILE=fglprofile
 %.42f: %.per 
 	fglform -M $<
@@ -13,7 +14,7 @@ all: $(FORMS) utils.42m $(MODULES)
 
 $(FORMS) $(MODULES): stores.sch cols_customer.4gl
 
-run: stores.sch $(MODULES) $(FORMS)
+run: all stores.sch $(MODULES) $(FORMS)
 	fglrun customers
 
 test.42m: utils.42m
@@ -26,7 +27,7 @@ aui_const.4gl:
 
 sDAdyn.42m: utils.42m sql2array.42m
 
-customers.42m: sDAdyn.42m utils.42m
+customers.42m: cols_customer.4gl sDAdyn.42m utils.42m
 
 orders.42m: sDAdyn.42m utils.42m
 

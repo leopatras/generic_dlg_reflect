@@ -210,7 +210,7 @@ PUBLIC FUNCTION show_cust(customer_num LIKE customer.customer_num)
   CLOSE WINDOW show_cust
 END FUNCTION
 
-FUNCTION MAIN()
+FUNCTION main()
   DEFINE d TM_customers
   DEFINE opts sDAdyn.T_SingleTableDAOptions =
     (sqlAll: "SELECT * FROM CUSTOMER AS cust",

@@ -171,16 +171,16 @@ FUNCTION readIntoArray(
   --DEFINE json_name STRING
   DEFINE name2Index T_2idxDICT
   LET tarr = arr.getType()
-  MYASSERT(tarr.getKind() == "ARRAY")
+  MYASSERT(tarr.getKind() == C_ARRAY)
   CALL arr.clear()
   --DISPLAY "toString:", tarr.toString(), ",kind:", tarr.getKind()
   LET trec = tarr.getElementType()
-  MYASSERT(trec.getKind() == "RECORD")
+  MYASSERT(trec.getKind() == C_RECORD)
   LET cnt = trec.getFieldCount()
   --build a dictionary to have a record position for a record member name
   FOR fieldIndex = 1 TO cnt
     LET tf = trec.getFieldType(fieldIndex)
-    IF tf.getKind() == "RECORD" THEN
+    IF tf.getKind() == C_RECORD THEN
       LET recName = trec.getFieldName(fieldIndex)
       DISPLAY "recName:", recName
       LET subcnt = tf.getFieldCount()
@@ -226,7 +226,7 @@ FUNCTION assignResultsByName(
     LET idx = tuple.idx
     LET fv = recv.getField(idx)
     IF tuple.subIdx > 0 THEN
-      MYASSERT(fv.getType().getKind() == "RECORD")
+      MYASSERT(fv.getType().getKind() == C_RECORD)
       LET fv = fv.getField(tuple.subIdx)
     END IF
     --type check
@@ -248,7 +248,7 @@ FUNCTION assignResultsByPos(h base.SqlHandle, recv reflect.Value)
   LET cnt = trec.getFieldCount()
   FOR fieldIndex = 1 TO cnt
     LET tf = trec.getFieldType(fieldIndex)
-    IF tf.getKind() == "RECORD" THEN
+    IF tf.getKind() == C_RECORD THEN
       LET rv = recv.getField(fieldIndex)
       LET subcnt = tf.getFieldCount()
       FOR subIndex = 1 TO subcnt
@@ -298,58 +298,15 @@ FUNCTION fillArrayWithQueryData(
   END WHILE
 END FUNCTION
 
---checks in depth 1
-FUNCTION getRecursiveFieldByName(
-  recv reflect.Value, name STRING, qualified BOOLEAN)
-  RETURNS reflect.Value
-  DEFINE idx INT
-  DEFINE subname STRING
-  VAR fv = recv.getFieldByName(name)
-  IF fv IS NOT NULL THEN
-    MYASSERT(fv.getType().getKind() == "PRIMITIVE")
-    RETURN fv
-  END IF
-  VAR trec = recv.getType()
-  MYASSERT(trec.getKind() == "RECORD")
-  LET subname = IIF(qualified, cutDot(name), name)
-  --DISPLAY "subname:",subname,",fieldCnt:",trec.getFieldCount()
-  FOR idx = 1 TO trec.getFieldCount()
-    VAR tf = trec.getFieldType(idx)
-    --DISPLAY "fieldName:",trec.getFieldName(idx),",subname:",subname
-    IF tf.getKind() == "RECORD" THEN
-      VAR fvidx = recv.getField(idx)
-      VAR fvsub = fvidx.getFieldByName(subname)
-      IF fvsub IS NOT NULL THEN
-        IF qualified THEN
-          VAR thisName STRING
-          LET thisName = trec.getFieldName(idx), ".", subname
-          IF NOT thisName.equals(name) THEN
-            DISPLAY "thisName:", thisName, "<>", name
-            CONTINUE FOR
-          END IF
-        END IF
-        MYASSERT(fvsub.getType().getKind() == "PRIMITIVE")
-        RETURN fvsub
-      END IF
-    END IF
-  END FOR
-  RETURN NULL
-END FUNCTION
-
 FUNCTION formatValue(fv reflect.Value) RETURNS STRING
   DISPLAY fv.getType().getKind(), fv.getType().toString()
   RETURN fv.toString()
 END FUNCTION
 
-FUNCTION cutDot(colName STRING) RETURNS STRING
-  VAR idx = colName.getIndexOf(str: ".", startIndex: 1)
-  RETURN IIF(idx > 0, colName.subString(idx + 1, colName.getLength()), colName)
-END FUNCTION
-
 FUNCTION getSerial(keys DYNAMIC ARRAY OF STRING, tabName STRING) RETURNS STRING
   DEFINE i INT
   FOR i = 1 TO keys.getLength()
-    VAR colName = cutDot(keys[i])
+    VAR colName = utils.cutFieldPrefix(keys[i])
     IF utils.isSerialColumnForTable(colName, tabName) THEN
       VAR serial = keys[i]
       DISPLAY "omit serial:", serial, " from INSERT"
@@ -363,7 +320,7 @@ END FUNCTION
 FUNCTION setSqlParamVal(h base.SqlHandle, pos INT, val reflect.Value)
   MYASSERT(val IS NOT NULL)
   VAR typeStr = val.getType().toString()
-  IF typeStr == "DATE" THEN
+  IF typeStr == C_DATE THEN
     --surround an SQL driver bug in sqlite/PGS:
     --DATE parameters passed as STRING are not converted properly
     VAR d DATE
@@ -393,7 +350,7 @@ FUNCTION re_read_data(
     IF i > 1 THEN
       LET cols = cols, ","
     END IF
-    LET cols = cols, cutDot(keys[i])
+    LET cols = cols, utils.cutFieldPrefix(keys[i])
   END FOR
   VAR h = base.SqlHandle.create()
   VAR sql
@@ -437,7 +394,7 @@ FUNCTION insertRecordIntoDB(
       LET cols = cols, ","
       LET quest = quest, ","
     END IF
-    LET cols = cols, cutDot(keys[i])
+    LET cols = cols, utils.cutFieldPrefix(keys[i])
     LET quest = quest, "?"
   END FOR
   LET sql = SFMT("INSERT INTO %1 (%2) VALUES (%3)", tabName, cols, quest)
@@ -477,11 +434,11 @@ FUNCTION updateRecordInDB(
     IF i > 1 THEN
       LET key_val = key_val, ","
     END IF
-    LET key_val = key_val, cutDot(keys[i]), " = ? "
+    LET key_val = key_val, utils.cutFieldPrefix(keys[i]), " = ? "
   END FOR
   VAR sql
     = SFMT("UPDATE %1 SET %2 WHERE %3=%4",
-      tabName, key_val, cutDot(serial), serialVal.toString())
+      tabName, key_val, utils.cutFieldPrefix(serial), serialVal.toString())
   DISPLAY "sql:", sql
   CALL h.prepare(sql)
   FOR i = 1 TO keys.getLength()
@@ -507,7 +464,7 @@ FUNCTION deleteRecordInDB(
   VAR h = base.SqlHandle.create()
   VAR sql
     = SFMT("DELETE FROM %1 WHERE %2=%3",
-      tabName, cutDot(serial), serialVal.toString())
+      tabName, utils.cutFieldPrefix(serial), serialVal.toString())
   DISPLAY "sql:", sql
   CALL h.prepare(sql)
   CALL h.execute()

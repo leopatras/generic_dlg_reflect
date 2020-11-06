@@ -11,13 +11,16 @@ PUBLIC CONSTANT C_ON_ACTION = "ON ACTION"
 PUBLIC CONSTANT C_BEFORE_ROW = "BEFORE ROW"
 PUBLIC CONSTANT C_AFTER_ROW = "AFTER ROW"
 --aui_const has no PhantomColumn...and the other 2 are also missing
-CONSTANT TAG_PhantomColumn = "PhantomColumn"
-CONSTANT TAG_RecordView = "RecordView"
-CONSTANT TAG_Link = "Link"
+PUBLIC CONSTANT TAG_PhantomColumn = "PhantomColumn"
+PUBLIC CONSTANT TAG_RecordView = "RecordView"
+PUBLIC CONSTANT TAG_Link = "Link"
 
-CONSTANT C_RECORD = "RECORD"
-CONSTANT C_ARRAY = "ARRAY"
-CONSTANT C_STORES_SCH = "stores.sch"
+PUBLIC CONSTANT C_RECORD = "RECORD"
+PUBLIC CONSTANT C_ARRAY = "ARRAY"
+PUBLIC CONSTANT C_PRIMITIVE = "PRIMITIVE"
+PUBLIC CONSTANT C_STORES_SCH = "stores.sch"
+PUBLIC CONSTANT C_DATE = "DATE"
+PUBLIC CONSTANT C_INTEGER = "DATE"
 
 PUBLIC TYPE T_STRING_ARR DYNAMIC ARRAY OF STRING
 PUBLIC TYPE T_STRING_DICT DICTIONARY OF STRING
@@ -146,7 +149,7 @@ FUNCTION getArrayRecElINT(
   DEFINE x INT
   VAR field = getArrayRecField(arrVal, idx, member)
   --we explicitly check for the type to avoid nonsense NULL return values
-  IF NOT field.getType().toString().equals("INTEGER") THEN
+  IF NOT field.getType().toString().equals(C_INTEGER) THEN
     CALL myerrAndStackTrace(
       SFMT("member '%1' doesn't have type INTEGER, actual: %2",
         member, field.getType().toString()))
@@ -162,7 +165,7 @@ FUNCTION getArrayRecElDATE(
   DEFINE x DATE
   VAR field = getArrayRecField(arrVal, idx, member)
   --we explicitly check for the type to avoid nonsense NULL return values
-  IF NOT field.getType().toString().equals("DATE") THEN
+  IF NOT field.getType().toString().equals(C_DATE) THEN
     CALL myerrAndStackTrace(
       SFMT("member '%1' doesn't have type DATE, actual: %2",
         member, field.getType().toString()))
@@ -362,6 +365,84 @@ FUNCTION copyArrayOfRecordByName(src reflect.Value, dest reflect.Value)
   END FOR
 END FUNCTION
 
+FUNCTION cutFieldPrefix(colName STRING) RETURNS STRING
+  VAR idx = colName.getIndexOf(str: ".", startIndex: 1)
+  RETURN IIF(idx > 0, colName.subString(idx + 1, colName.getLength()), colName)
+END FUNCTION
+
+--checks in depth 1
+FUNCTION getRecursiveFieldByName(
+  recv reflect.Value, name STRING, qualified BOOLEAN)
+  RETURNS reflect.Value
+  DEFINE idx INT
+  DEFINE subname STRING
+  VAR fv = recv.getFieldByName(name)
+  IF fv IS NOT NULL THEN
+    MYASSERT(fv.getType().getKind() == C_PRIMITIVE)
+    RETURN fv
+  END IF
+  VAR trec = recv.getType()
+  MYASSERT(trec.getKind() == C_RECORD)
+  LET subname = IIF(qualified, cutFieldPrefix(name), name)
+  --DISPLAY "subname:",subname,",fieldCnt:",trec.getFieldCount()
+  FOR idx = 1 TO trec.getFieldCount()
+    VAR tf = trec.getFieldType(idx)
+    --DISPLAY "fieldName:",trec.getFieldName(idx),",subname:",subname
+    IF tf.getKind() == C_RECORD THEN
+      VAR fvidx = recv.getField(idx)
+      VAR fvsub = fvidx.getFieldByName(subname)
+      IF fvsub IS NOT NULL THEN
+        IF qualified THEN
+          VAR thisName STRING
+          LET thisName = trec.getFieldName(idx), ".", subname
+          IF NOT thisName.equals(name) THEN
+            DISPLAY "thisName:", thisName, "<>", name
+            CONTINUE FOR
+          END IF
+        END IF
+        MYASSERT(fvsub.getType().getKind() == C_PRIMITIVE)
+        RETURN fvsub
+      END IF
+    END IF
+  END FOR
+  RETURN NULL
+END FUNCTION
+
+FUNCTION getRecursiveTypeByName(
+  trec reflect.Type, name STRING, qualified BOOLEAN)
+  RETURNS reflect.Type
+  DEFINE subname STRING
+  MYASSERT(trec.getKind() == C_RECORD)
+  VAR ft = trec.getFieldTypeByName(name)
+  IF ft IS NOT NULL THEN
+    MYASSERT(ft.getKind() == C_PRIMITIVE)
+    RETURN ft
+  END IF
+  LET subname = IIF(qualified, cutFieldPrefix(name), name)
+  --DISPLAY "subname:",subname,",fieldCnt:",trec.getFieldCount()
+  VAR idx INT
+  FOR idx = 1 TO trec.getFieldCount()
+    VAR tf = trec.getFieldType(idx)
+    --DISPLAY "fieldName:",trec.getFieldName(idx),",subname:",subname
+    IF tf.getKind() == C_RECORD THEN
+      VAR tfsub = tf.getFieldTypeByName(subname)
+      IF tfsub IS NOT NULL THEN
+        IF qualified THEN
+          VAR thisName STRING
+          LET thisName = trec.getFieldName(idx), ".", subname
+          IF NOT thisName.equals(name) THEN
+            DISPLAY "thisName:", thisName, "<>", name
+            CONTINUE FOR
+          END IF
+        END IF
+        MYASSERT(tfsub.getKind() == C_PRIMITIVE)
+        RETURN tfsub
+      END IF
+    END IF
+  END FOR
+  RETURN NULL
+END FUNCTION
+
 FUNCTION getFormTitle() RETURNS STRING
   RETURN ui.Window.getCurrent().getForm().getNode().getAttribute("text")
 END FUNCTION
@@ -383,6 +464,10 @@ FUNCTION append42f(fname STRING) RETURNS STRING
   RETURN f42f
 END FUNCTION
 
+FUNCTION getFieldName(field om.DomNode, qualified BOOLEAN) RETURNS STRING
+  RETURN IIF(qualified, field.getAttribute(A_name), field.getAttribute(A_colName))
+END FUNCTION
+
 FUNCTION scanTable(t om.DomNode, qualified BOOLEAN) RETURNS T_STRING_DICT
   DEFINE i, loop INT
   DEFINE name STRING
@@ -392,12 +477,35 @@ FUNCTION scanTable(t om.DomNode, qualified BOOLEAN) RETURNS T_STRING_DICT
       = t.selectByTagName(IIF(loop == 1, TAG_TableColumn, TAG_PhantomColumn))
     FOR i = 1 TO l2.getLength()
       VAR tc = l2.item(i)
-      LET name =
-        IIF(qualified, tc.getAttribute(A_name), tc.getAttribute(A_colName))
+      LET name = getFieldName(tc,qualified)
       LET dict[name] = tc.getAttribute(A_sqlTabName)
     END FOR
   END FOR
   RETURN dict
+END FUNCTION
+
+FUNCTION getCurrentForm() RETURNS om.DomNode
+  DEFINE win ui.Window
+  DEFINE frm ui.Form
+  MYASSERT((win := ui.Window.getCurrent()) IS NOT NULL)
+  MYASSERT((frm := win.getForm()) IS NOT NULL )
+  RETURN frm.getNode()
+END FUNCTION
+
+FUNCTION getTableByScreenRecord(formRoot om.DomNode,screenRec STRING) RETURNS om.DomNode
+  MYASSERT(formRoot IS NOT NULL)
+  MYASSERT(formRoot.getTagName()==TAG_Form)
+  VAR l
+    = formRoot.selectByPath(
+      SFMT('//' || TAG_Table || '[@' || A_tabName || '="%1"]', screenRec))
+  VAR len=l.getLength()
+  IF len>0 THEN
+    MYASSERT(len) --there can be only one table with a screenRec
+    VAR tabNode=l.item(1)
+    MYASSERT(tabNode.getTagName()==TAG_Table)
+    RETURN tabNode
+  END IF
+  RETURN NULL
 END FUNCTION
 
 --unfortunately there is no ui.XX function to retrieve
@@ -420,11 +528,9 @@ FUNCTION readNamesFromScreenRecord(
     LET root = frmO.getNode()
   END IF
   --first search: Table
-  VAR l
-    = root.selectByPath(
-      SFMT('//' || TAG_Table || '[@' || A_tabName || '="%1"]', screenRec))
-  IF l.getLength() == 1 THEN
-    RETURN scanTable(l.item(1), qualified)
+  VAR tabNode=getTableByScreenRecord(root,screenRec)
+  IF tabNode IS NOT NULL THEN
+    RETURN scanTable(tabNode, qualified)
   END IF
   --2nd search: RecordView..we need the .42f
   IF doc IS NULL THEN
@@ -475,8 +581,7 @@ PRIVATE FUNCTION addFieldNamesToDict(
   VAR len = l.getLength()
   FOR i = 1 TO len
     VAR node = l.item(i)
-    LET name =
-      IIF(qualified, node.getAttribute(A_name), node.getAttribute(A_colName))
+    LET name = getFieldName(node,qualified)
     LET fieldsDict[name] = node.getAttribute(A_sqlTabName)
   END FOR
 END FUNCTION
@@ -606,7 +711,7 @@ FUNCTION getSchemaVal(
     WHEN 1
       LET schVal.typeStr = "SMALLINT"
     WHEN 2
-      LET schVal.typeStr = "INTEGER"
+      LET schVal.typeStr = C_INTEGER
     WHEN 3
       LET schVal.typeStr = "FLOAT"
     WHEN 4
@@ -616,9 +721,9 @@ FUNCTION getSchemaVal(
     WHEN 6
       --DISPLAY "serial for:", tabname, " ", colname
       LET schVal.isSerial = TRUE
-      LET schVal.typeStr = "INTEGER"
+      LET schVal.typeStr = C_INTEGER
     WHEN 7
-      LET schVal.typeStr = "DATE"
+      LET schVal.typeStr = C_DATE
     WHEN 8
       LET schVal.typeStr = "MONEY"
     WHEN 10

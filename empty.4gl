@@ -28,7 +28,7 @@ FUNCTION (self TM_empty) AfterRow(d ui.Dialog, row INT)
   DISPLAY sfmt("TM_empty AfterRow:%1",row)
 END FUNCTION
 
-FUNCTION MAIN()
+FUNCTION main()
   DEFINE me TM_empty
   CALL utils.dbconnect()
   VAR opts sDAdyn.T_SingleTableDAOptions =

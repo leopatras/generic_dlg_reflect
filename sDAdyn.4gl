@@ -226,6 +226,7 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
   LET winId = utils.openDynamicWindow(self.o.browseForm)
   CALL self.checkClickableImages()
   LET names = self.describeFieldsForRecord(rec, self.o.browseForm, trec, fields)
+  CALL checkDATEjustify(trec, names, rec, self.o.qualifiedNames)
   DISPLAY "browseArray names:", util.JSON.stringify(names)
   DISPLAY "fields:", util.JSON.stringify(fields)
   --we need to store the original form text
@@ -394,6 +395,33 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
   END WHILE
   INITIALIZE self.dlgDA TO NULL
   CALL utils.closeDynamicWindow(winId)
+END FUNCTION
+
+--sets all unJUSTIFYed DATE colummns to be right aligned
+FUNCTION checkDATEjustify(
+  trec reflect.Type, names T_INT_DICT, screenRec STRING, qualified BOOLEAN)
+  VAR formRoot = utils.getCurrentForm()
+  VAR table = utils.getTableByScreenRecord(formRoot, screenRec)
+  IF table IS NULL THEN
+    RETURN
+  END IF
+  VAR l = table.selectByTagName(TAG_TableColumn)
+  VAR len = l.getLength()
+  VAR i INT
+  FOR i = 1 TO len
+    VAR tc = l.item(i)
+    VAR name = utils.getFieldName(tc, qualified)
+    IF names.contains(name) THEN
+      VAR fieldType = utils.getRecursiveTypeByName(trec, name, qualified)
+      IF fieldType.toString() == C_DATE THEN
+        VAR firstChild = tc.getFirstChild()
+        VAR justify = firstChild.getAttribute(A_justify)
+        IF justify IS NULL THEN
+          CALL firstChild.setAttribute(A_justify, "right")
+        END IF
+      END IF
+    END IF
+  END FOR
 END FUNCTION
 
 FUNCTION (self TM_SingleTableDA)

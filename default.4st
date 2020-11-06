@@ -3,4 +3,7 @@
   <Style name="*">
      <StyleAttribute name="actionPanelButtonTextAlign" value="left" />
   </Style>
+  <Style name="Table">
+     <StyleAttribute name="headerAlignment" value="auto" />
+  </Style>
 </StyleList>

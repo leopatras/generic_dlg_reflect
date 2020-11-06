@@ -81,7 +81,7 @@ FUNCTION showOrders(
   CALL sDAdyn.browseArray(opts)
 END FUNCTION
 
-FUNCTION MAIN()
+FUNCTION main()
   CALL utils.dbconnect()
   CALL showOrders(-1, "", "")
 END FUNCTION

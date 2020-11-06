@@ -67,7 +67,7 @@ FUNCTION (self TM_custex) checkInterfaces()
   LET iDR = self
 END FUNCTION
 
-FUNCTION MAIN()
+FUNCTION main()
   DEFINE arr DYNAMIC ARRAY OF TM_custex
   DEFINE opts sDAdyn.T_SingleTableDAOptions =
     (sqlAll:
