@@ -30,6 +30,9 @@ customers.42m: sDAdyn.42m utils.42m
 
 orders.42m: sDAdyn.42m utils.42m
 
+orders: orders.42m orders.42f
+	fglrun orders
+
 test: stores.sch $(MODULES)
 	fglrun test
 

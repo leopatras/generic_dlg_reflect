@@ -360,6 +360,69 @@ FUNCTION getSerial(keys DYNAMIC ARRAY OF STRING, tabName STRING) RETURNS STRING
   RETURN NULL
 END FUNCTION
 
+FUNCTION setSqlParamVal(h base.SqlHandle, pos INT, val reflect.Value)
+  MYASSERT(val IS NOT NULL)
+  VAR typeStr = val.getType().toString()
+  IF typeStr == "DATE" THEN
+    --surround an SQL driver bug in sqlite/PGS:
+    --DATE parameters passed as STRING are not converted properly
+    VAR d DATE
+    LET d = val.toString()
+    CALL h.setParameter(pos, d)
+  ELSE
+    CALL h.setParameter(pos, val.toString())
+  END IF
+END FUNCTION
+
+&define VALIDATE_INSERT_UPDATE
+&ifdef VALIDATE_INSERT_UPDATE
+--this function is for test purposes of the reflection interface to the DB
+--we re read the data we INSERTed/UPDATEd previously to ensure the DB drivers
+--did work correct
+FUNCTION re_read_data(
+  recv reflect.Value,
+  names T_INT_DICT,
+  tabName STRING,
+  serial STRING,
+  serialVal reflect.Value,
+  qualified BOOLEAN)
+  VAR keys = names.getKeys()
+  VAR cols STRING
+  VAR i INT
+  FOR i = 1 TO keys.getLength()
+    IF i > 1 THEN
+      LET cols = cols, ","
+    END IF
+    LET cols = cols, cutDot(keys[i])
+  END FOR
+  COMMIT WORK
+  BEGIN WORK
+  VAR h = base.SqlHandle.create()
+  VAR sql
+    = SFMT("SELECT %1 FROM %2 WHERE %3=%4",
+      cols, tabName, serial, serialVal.toString())
+  CALL h.prepare(sql)
+  CALL h.open()
+  CALL h.fetch()
+  VAR cnt = h.getResultCount()
+  FOR i = 1 TO cnt
+    --LET sqltype = h.getResultType(i)
+    VAR value = reflect.Value.copyOf(h.getResultValue(i))
+    VAR name = h.getResultName(i)
+    IF name == serialVal THEN
+      MYASSERT(serialVal.toString() == value.toString())
+    ELSE
+      VAR fv = getRecursiveFieldByName(recv, keys[i], qualified)
+      MYASSERT(fv IS NOT NULL)
+      VAR valuetr = value.toString().trim()
+      VAR fvtr = fv.toString().trim()
+      --DISPLAY "name:",name,",keys[i]:",keys[i],",valuetr:'",valuetr,"',fvtr:'",fvtr,"'"
+      MYASSERT(fvtr.equals(valuetr))
+    END IF
+  END FOR
+END FUNCTION
+&endif
+
 FUNCTION insertRecordIntoDB(
   recv reflect.Value, names T_INT_DICT, tabName STRING, qualified BOOLEAN)
   DEFINE keys DYNAMIC ARRAY OF STRING
@@ -385,9 +448,7 @@ FUNCTION insertRecordIntoDB(
   FOR i = 1 TO keys.getLength()
     LET key = keys[i]
     LET fv = getRecursiveFieldByName(recv, key, qualified)
-    MYASSERT(fv IS NOT NULL)
-    DISPLAY "setParameter:", fv.toString()
-    CALL h.setParameter(i, fv.toString())
+    CALL setSqlParamVal(h, i, fv)
   END FOR
   CALL h.execute()
   IF serial IS NOT NULL THEN
@@ -396,6 +457,9 @@ FUNCTION insertRecordIntoDB(
     LET svalue = reflect.Value.valueOf(sqlca.sqlerrd[2])
     MYASSERT(fv.getType().isAssignableFrom(svalue.getType()))
     CALL fv.set(svalue)
+&ifdef VALIDATE_INSERT_UPDATE
+    CALL re_read_data(recv, names, tabName, serial, svalue, qualified)
+&endif
   END IF
   WHENEVER ERROR STOP
 END FUNCTION
@@ -425,10 +489,12 @@ FUNCTION updateRecordInDB(
   FOR i = 1 TO keys.getLength()
     VAR key = keys[i]
     VAR fv = getRecursiveFieldByName(recv, key, qualified)
-    MYASSERT(fv IS NOT NULL)
-    CALL h.setParameter(i, fv.toString())
+    CALL setSqlParamVal(h, i, fv)
   END FOR
   CALL h.execute()
+&ifdef VALIDATE_INSERT_UPDATE
+  CALL re_read_data(recv, names, tabName, serial, serialVal, qualified)
+&endif
   WHENEVER ERROR STOP
 END FUNCTION
 

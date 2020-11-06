@@ -68,6 +68,7 @@ FUNCTION showOrders(
   IF customer_num == -1 THEN
     LET opts.sqlAll = "SELECT * FROM ORDERS"
     LET opts.hasFilter = TRUE
+    LET opts.hasUpdate = TRUE
     LET mo.browseOrders = TRUE
   ELSE
     LET opts.sqlAll =
