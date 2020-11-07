@@ -6,5 +6,6 @@ realpath() {
 SCRIPT_NAME=`realpath $0`
 TOOLSDIR=`dirname $SCRIPT_NAME` 
 #we recompile everything always: hence avoid version clashes
+unset FGLPROFILE
 make -C $TOOLSDIR clean gen_aui_const.42m > /dev/null
 exec fglrun $TOOLSDIR/gen_aui_const.42m "$@" 

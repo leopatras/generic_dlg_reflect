@@ -7,5 +7,5 @@ SCRIPT_NAME=`realpath $0`
 TOOLSDIR=`dirname $SCRIPT_NAME` 
 #we recompile everything always: hence avoid version clashes
 unset FGLPROFILE
-make -C $TOOLSDIR clean gen_col_names.42m > /dev/null
-exec fglrun $TOOLSDIR/gen_col_names.42m "$@" 
+make -C $TOOLSDIR clean gen_form_names.42m > /dev/null
+exec fglrun $TOOLSDIR/gen_form_names.42m "$@" 

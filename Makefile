@@ -8,9 +8,10 @@ export FGLPROFILE=fglprofile
 
 ALLMODULES = $(patsubst %.4gl, %.42m, $(wildcard *.4gl))
 MODULES=$(filter-out utils.42m,$(ALLMODULES))
-FORMS   = $(patsubst %.per, %.42f, $(wildcard *.per))
+ALLFORMS   = $(patsubst %.per, %.42f, $(wildcard *.per))
+FORMS=$(filter-out customers.42f,$(ALLFORMS))
 
-all: $(FORMS) utils.42m $(MODULES)
+all: stores.sch customers.42f cols_customer.4gl $(FORMS) utils.42m $(MODULES)
 
 $(FORMS) $(MODULES): stores.sch cols_customer.4gl
 
@@ -28,7 +29,7 @@ aui_const.4gl:
 
 sDAdyn.42m: utils.42m sql2array.42m
 
-customers.42m: cols_customer.4gl sDAdyn.42m utils.42m
+customers.42m: sDAdyn.42m utils.42m
 
 orders.42m: sDAdyn.42m utils.42m
 
@@ -53,6 +54,8 @@ clean::
 	$(RM) -f *.42? cols_customer.4gl aui_const.4gl
 
 echo:
-	@echo "MODULES:$(MODULES)"
 	@echo "ALLMODULES:$(ALLMODULES)"
+	@echo "MODULES:$(MODULES)"
+	@echo "ALLFORMS:$(ALLFORMS)"
+	@echo "FORMS:$(FORMS)"
 
