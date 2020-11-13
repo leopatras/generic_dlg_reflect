@@ -22,7 +22,7 @@ FUNCTION (self TM_custex) InsertOrUpdate(update BOOLEAN)
   IF update THEN
     UPDATE customer
       SET customer.* = self.cust.*
-      WHERE @customer_num = self.cust.customer_num
+      WHERE @customer_num = $self.cust.customer_num
     IF self.cust.customer_num == 101
       --we provoke an SQL error on the first customer
       THEN

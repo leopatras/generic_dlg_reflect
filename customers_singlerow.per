@@ -27,12 +27,11 @@ GRID
 [City        ][f006                             ]
 [State       ][a0                               ]
 [Zipcode     ][f007                             ]
-              [xx ]
-
+[Telephone   ][f008                             ]
 
 }
 END END
---[Telephone   ][f008                             ]
+--              [xx ]
 
 TABLES
 cust=customer
@@ -49,8 +48,8 @@ f005 = cust.address2;
 f006 = cust.city;
 BUTTONEDIT a0 = cust.state, UPSHIFT, NOTEDITABLE, ACTION=zoom;
 f007 = cust.zipcode;
---EDIT f008 = cust.phone;--, PICTURE = "###-###-#### XXXXX";
-xx= FORMONLY.xx;
+f008 = cust.phone;--, PICTURE = "###-###-#### XXXXX";
+--xx= FORMONLY.xx;
 
 LABEL Number : TEXT = %"Number";
 LABEL First_Name : TEXT = %"First Name";
@@ -61,7 +60,8 @@ LABEL Address2 : TEXT = %"Address2";
 LABEL City : TEXT = %"City";
 LABEL State : TEXT = %"State";
 LABEL Zipcode : TEXT = %"Zipcode";
---LABEL Telephone : TEXT = %"Telephone";
+LABEL Telephone : TEXT = %"Telephone";
 
 INSTRUCTIONS
-SCREEN RECORD scr(cust.customer_num THRU cust.zipcode,FORMONLY.xx)
+--SCREEN RECORD scr(cust.customer_num THRU cust.zipcode,FORMONLY.xx)
+SCREEN RECORD scr(cust.*)

@@ -25,6 +25,10 @@ PUBLIC CONSTANT C_INTEGER = "DATE"
 PUBLIC TYPE T_STRING_ARR DYNAMIC ARRAY OF STRING
 PUBLIC TYPE T_STRING_DICT DICTIONARY OF STRING
 PUBLIC TYPE T_INT_DICT DICTIONARY OF INT
+PUBLIC TYPE T_fields DYNAMIC ARRAY OF RECORD
+  name STRING, -- a column name
+  type STRING -- a column type
+END RECORD
 
 DEFINE mShowStack BOOLEAN
 DEFINE mWindows ARRAY[10] OF BOOLEAN
@@ -131,6 +135,7 @@ FUNCTION getArrayRecEl(
   LET field = getArrayRecField(arrVal, idx, member)
   RETURN field.toString()
 END FUNCTION
+
 
 --function to set arbitray member values for an array index ( ARRAY OF RECORD )
 FUNCTION setArrayRecEl(
@@ -634,6 +639,87 @@ FUNCTION getInputColumnNamesAndTableNames(
   RETURN namesdict
 END FUNCTION
 
+--FUNCTION fieldsFromTable(tabname) RETURNS T_fields
+--  SELE
+--END FUNCTION
+
+-- createDisplayArrayForm {{{
+FUNCTION createDisplayArrayForm(tabName STRING,name STRING,fields T_fields)
+    VAR w = ui.Window.getCurrent()
+    VAR f = w.createForm("test")
+    VAR form = f.getNode()
+    CALL form.setAttribute(A_name, name)
+    CALL form.setAttribute(A_text,tabName)
+    VAR window = form.getParent()
+    CALL window.setAttribute(A_text, tabName)
+    VAR grid = form.createChild(TAG_Grid)
+    CALL grid.setAttribute(A_width, 1)
+    CALL grid.setAttribute(A_height, 1)
+    VAR table = grid.createChild(TAG_Table)
+    CALL table.setAttribute(A_doubleClick, "update")
+    CALL table.setAttribute(A_tabName, tabName)
+    CALL table.setAttribute(A_pageSize, 10)
+    CALL table.setAttribute(A_gridWidth, 1)
+    CALL table.setAttribute(A_gridHeight, 1)
+    VAR i INT
+    FOR i = 1 TO fields.getLength()
+        VAR formfield = table.createChild(TAG_TableColumn)
+        VAR colName = fields[i].name
+        VAR colType = fields[i].type
+        CALL formfield.setAttribute(A_text, colName)
+        CALL formfield.setAttribute(A_colName, colName)
+        CALL formfield.setAttribute(A_name, tabName || "." || colName)
+        CALL formfield.setAttribute(A_sqlType, colType)
+        --CALL formfield.setAttribute("fieldId", i)
+        CALL formfield.setAttribute(A_tabIndex, i + 1)
+        VAR edit = formfield.createChild(TAG_Edit)
+        CALL edit.setAttribute(A_width, bestWidth(colType))
+    END FOR
+    --CALL form.writeXml("test.42f")
+END FUNCTION
+
+FUNCTION bestWidth(t)
+    DEFINE t STRING
+    DEFINE i, j, len INT
+    IF (i := t.getIndexOf('(', 1)) > 0 THEN
+        IF (j := t.getIndexOf(',', i + 1)) == 0 THEN
+            LET j = t.getIndexOf(')', i + 1)
+        END IF
+        LET len = t.subString(i + 1, j - 1)
+        LET t = t.subString(1, i - 1)
+    END IF
+    CASE t
+        WHEN "BOOLEAN"
+            RETURN 1
+        WHEN "TINYINT"
+            RETURN 4
+        WHEN "SMALLINT"
+            RETURN 6
+        WHEN "INTEGER"
+            RETURN 11
+        WHEN "BIGINT"
+            RETURN 20
+        WHEN "SMALLFLOAT"
+            RETURN 14
+        WHEN "FLOAT"
+            RETURN 14
+        WHEN "STRING"
+            RETURN 20
+        WHEN "DECIMAL"
+            RETURN IIF(len IS NULL, 16, len + 2)
+        WHEN "MONEY"
+            RETURN IIF(len IS NULL, 16, len + 2)
+        WHEN "CHAR"
+            RETURN IIF(len IS NULL, 1, IIF(len > 20, 20, len))
+        WHEN "VARCHAR"
+            RETURN IIF(len IS NULL, 1, IIF(len > 20, 20, len))
+        WHEN "DATE"
+            RETURN 10
+        OTHERWISE
+            RETURN 20
+    END CASE
+END FUNCTION
+
 --really not nice, but not a road block
 --it would be very handy if we wouldn't need to code a function like that
 FUNCTION openDynamicWindow(frm STRING) RETURNS INT
@@ -789,14 +875,14 @@ FUNCTION readSchema(schFile STRING)
   CALL ch.setDelimiter("^")
   CALL ch.openFile(schFile, "r")
   VAR
-    tabName, colName STRING,
+    tabname, colname STRING,
     dt, len, pos INT
   WHILE ch.read([tabname, colname, dt, len, pos])
     VAR schVal T_schemaVal
     CALL getSchemaVal(tabname, colname, dt, len) RETURNING schVal.*
     LET m_schema[tabname][colname] = schVal
     LET m_colsByName[tabname][colname] = pos
-    LET m_colsByPos[tabname][pos] = colName
+    LET m_colsByPos[tabname][pos] = colname
   END WHILE
   MYASSERT(m_schema.getLength() > 0)
   CALL ch.close()

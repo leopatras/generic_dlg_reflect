@@ -9,6 +9,11 @@ IMPORT FGL fgldialog
 IMPORT FGL sql2array
 IMPORT FGL aui_const
 CONSTANT C_RECORD = "RECORD"
+CONSTANT C_AUTO_FORM = "__auto__form__"
+PUBLIC CONSTANT OA_delete = "delete"
+PUBLIC CONSTANT OA_update = "update"
+PUBLIC CONSTANT ON_ACTION_accept = "ON ACTION accept"
+PUBLIC CONSTANT ON_ACTION_cancel = "ON ACTION cancel"
 --the I_ prefix indicates an interface
 
 --define a set of interfaces with single methods custom RECORDs can implement
@@ -24,6 +29,14 @@ PUBLIC TYPE I_BeforeRow INTERFACE
   BeforeRow(d ui.Dialog, row INT) RETURNS()
 END INTERFACE
 
+PUBLIC TYPE I_CanUpdateRow INTERFACE
+  CanUpdateRow(row INT) RETURNS(BOOLEAN)
+END INTERFACE
+
+PUBLIC TYPE I_CanDeleteRow INTERFACE
+  CanDeleteRow(row INT) RETURNS(BOOLEAN)
+END INTERFACE
+
 PUBLIC TYPE I_AfterRow INTERFACE
   AfterRow(d ui.Dialog, row INT) RETURNS()
 END INTERFACE
@@ -36,7 +49,7 @@ PUBLIC TYPE I_OnActionInDA INTERFACE
   OnActionInDA(actionName STRING, row INT) RETURNS()
 END INTERFACE
 
-PUBLIC TYPE I_InitInput INTERFACE
+PUBLIC TYPE I_InitINPUT INTERFACE
   InitINPUT(sdi I_SingleTableDA, d ui.Dialog) RETURNS()
 END INTERFACE
 
@@ -48,7 +61,7 @@ PUBLIC TYPE I_AfterField INTERFACE
   AfterField(d ui.Dialog, fieldName STRING, oldValue STRING) RETURNS(STRING)
 END INTERFACE
 
-PUBLIC TYPE I_OnActionInInput INTERFACE
+PUBLIC TYPE I_OnActionInINPUT INTERFACE
   OnActionInINPUT(d ui.Dialog, actionName STRING) RETURNS()
 END INTERFACE
 
@@ -89,10 +102,12 @@ PUBLIC TYPE T_SingleTableDAOptions RECORD
   hasDelete BOOLEAN,
   addClickableImages BOOLEAN,
   qualifiedNames
-    BOOLEAN --if set field names are referenced by "tableName.columnName",
---and hence also the names in the ARRAY
---this means RECORDs *must* have sub RECORD names *matching* the table names/aliases
---, multiRowSelection BOOLEAN
+      BOOLEAN --if set field names are referenced by "tableName.columnName",
+    --and hence also the names in the ARRAY
+    --this means RECORDs *must* have sub RECORD names *matching* the table names/aliases
+    --, multiRowSelection BOOLEAN
+    ,
+  tabname STRING --optional tablename
 END RECORD
 
 --PUBLIC TYPE T_MDOptions RECORD
@@ -125,24 +140,19 @@ TYPE TM_SingleTableDA RECORD
   tableNamesDA T_INT_DICT
 END RECORD
 
-TYPE T_fields DYNAMIC ARRAY OF RECORD
-  name STRING, -- a column name
-  type STRING -- a column type
-END RECORD
-
 --hides/shows some build in actions and the custom
 --row bound actions
 FUNCTION (self TM_SingleTableDA)
   checkRowBoundActions(
-  d ui.Dialog, arrval reflect.Value)
+  d ui.Dialog, arrVal reflect.Value)
   DEFINE empty BOOLEAN
   DEFINE i INT
-  LET empty = arrval.getLength() == 0
+  LET empty = arrVal.getLength() == 0
   IF self.o.hasUpdate THEN
-    CALL d.setActionHidden("update", empty)
+    CALL d.setActionHidden(OA_update, empty)
   END IF
   IF self.o.hasDelete THEN
-    CALL d.setActionHidden("delete", empty)
+    CALL d.setActionHidden(OA_delete, empty)
   END IF
   FOR i = 1 TO self.rowBounds.getLength()
     CALL d.setActionHidden(self.rowBounds[i], empty)
@@ -181,7 +191,7 @@ END FUNCTION
 
 FUNCTION actionFromEvent(event STRING) RETURNS STRING
   DEFINE actionName STRING
-  LET actionName = event.subString(LENGTH(C_ON_ACTION) + 2, event.getLength())
+  LET actionName = event.subString(length(C_ON_ACTION) + 2, event.getLength())
   DISPLAY "actionName:'", actionName, "'"
   RETURN actionName
 END FUNCTION
@@ -213,6 +223,8 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
   DEFINE names T_INT_DICT
   DEFINE ifvarOE I_OnEventInDA
   DEFINE ifvarBR I_BeforeRow
+  DEFINE ifvarUR I_CanUpdateRow
+  DEFINE ifvarDR I_CanDeleteRow
   DEFINE ifvarAR I_AfterRow
   DEFINE ifvarOA I_OnActionInDA
   DEFINE ifvarDA I_InitDA
@@ -222,6 +234,7 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
   LET trec = arrval.getType().getElementType()
   MYASSERT(trec.getKind() == C_RECORD)
   MYASSERT(self.o.sqlAll IS NOT NULL)
+  CALL self.checkAutoForm(trec)
   LET rec = self.o.browseRecord
   LET winId = utils.openDynamicWindow(self.o.browseForm)
   CALL self.checkClickableImages()
@@ -334,6 +347,27 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
               CALL el.assignToVariable(ifvarBR)
               CALL ifvarBR.BeforeRow(d, row)
             END IF
+            IF self.o.hasUpdate THEN
+              IF el.canAssignToVariable(ifvarUR) THEN
+                CALL el.assignToVariable(ifvarUR)
+                VAR canUpdateRow = ifvarUR.CanUpdateRow(row)
+                CALL d.setActionActive(OA_update, canUpdateRow)
+                IF self.o.addClickableImages THEN
+                  --TODO: if ON FILL BUFFER is used instead of filling the whole array
+                  DISPLAY "WARNING: clickable images don't work with the CanUpdateRow method in a Table container"
+                END IF
+              END IF
+            END IF
+            IF self.o.hasDelete THEN
+              IF el.canAssignToVariable(ifvarDR) THEN
+                CALL el.assignToVariable(ifvarDR)
+                VAR canDeleteRow = ifvarDR.CanDeleteRow(row)
+                CALL d.setActionActive(OA_delete, canDeleteRow)
+                IF self.o.addClickableImages THEN
+                  DISPLAY "WARNING: clickable images don't work with the CanDeleteRow method in a Table container"
+                END IF
+              END IF
+            END IF
           END IF
         WHEN event = "AFTER ROW"
           LET row = d.getCurrentRow(rec)
@@ -370,8 +404,8 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
           LET row = d.getCurrentRow(rec)
           --Call action trigger for the delegateDA if present
           IF delegateDA IS NOT NULL
-            AND delegateDA.canAssignToVariable(ifvarAR) THEN
-            CALL delegateDA.assignToVariable(ifvarAR)
+            AND delegateDA.canAssignToVariable(ifvarOA) THEN
+            CALL delegateDA.assignToVariable(ifvarOA)
             CALL ifvarOA.OnActionInDA(actionFromEvent(event), row)
           END IF
           IF row > 0 AND row <= arrval.getLength() THEN
@@ -395,6 +429,30 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
   END WHILE
   INITIALIZE self.dlgDA TO NULL
   CALL utils.closeDynamicWindow(winId)
+END FUNCTION
+
+FUNCTION (self TM_SingleTableDA) checkAutoForm(trec reflect.Type)
+  IF self.o.browseForm IS NOT NULL THEN
+    RETURN
+  END IF
+  --if we didn't pass a form we generate one
+  VAR tabname = readTableNameFromRecordDesc(trec)
+  DISPLAY "got tabname:", tabname
+  IF tabname IS NULL THEN
+    MYASSERT(self.o.tabname IS NOT NULL)
+    LET tabname = self.o.tabname
+  END IF
+  VAR fields = sql2array.getDialogFieldsFromTable(tabname)
+  MYASSERT(fields.getLength() <> 0)
+  VAR fname = SFMT("%1_%2", C_AUTO_FORM, tabname)
+  DISPLAY "generate:", fname, " in memory"
+  OPEN WINDOW _tmp_ WITH 1 ROWS, 1 COLUMNS
+  CALL utils.createDisplayArrayForm(tabname, fname, fields)
+  VAR frmNode = utils.getCurrentForm()
+  CALL frmNode.writeXml(SFMT("%1.42f", fname))
+  CLOSE WINDOW _tmp_
+  LET self.o.browseForm = fname
+  LET self.o.browseRecord = tabname
 END FUNCTION
 
 --sets all unJUSTIFYed DATE colummns to be right aligned
@@ -431,12 +489,12 @@ FUNCTION (self TM_SingleTableDA)
   DEFINE currVal, savedVal reflect.Value
   LET currRow = d.getCurrentRow(self.o.browseRecord)
   --backup the current currRow
-  CALL arrval.appendArrayElement()
-  LET savedrow = arrval.getLength()
+  CALL arrVal.appendArrayElement()
+  LET savedrow = arrVal.getLength()
   LET savedVal = arrVal.getArrayElement(savedrow)
   LET currVal = arrVal.getArrayElement(currRow)
   CALL utils.copyRecord(currVal, savedVal)
-  CALL self.inputRow(arrval.getArrayElement(currRow), "Update", names)
+  CALL self.inputRow(arrVal.getArrayElement(currRow), "Update", names)
   IF int_flag THEN
     --user might have modified data in currVal inbetween
     CALL utils.copyRecord(savedVal, currVal)
@@ -450,16 +508,16 @@ FUNCTION (self TM_SingleTableDA)
   handleAppendRow(
   arrVal reflect.Value, d ui.Dialog, names T_INT_DICT, filterActive BOOLEAN)
   DEFINE newRow INT
-  CALL arrval.appendArrayElement()
-  LET newRow = arrval.getLength()
+  CALL arrVal.appendArrayElement()
+  LET newRow = arrVal.getLength()
   LET int_flag = FALSE
-  CALL self.inputRow(arrval.getArrayElement(newRow), "Append", names)
+  CALL self.inputRow(arrVal.getArrayElement(newRow), "Append", names)
   IF int_flag THEN
-    CALL arrval.deleteArrayElement(newRow)
+    CALL arrVal.deleteArrayElement(newRow)
   ELSE
     CALL self.setClickableImages(d)
   END IF
-  CALL self.checkRowBoundActions(d, arrval)
+  CALL self.checkRowBoundActions(d, arrVal)
   CALL self.setBrowseTitle(filterActive)
 END FUNCTION
 
@@ -468,14 +526,19 @@ FUNCTION (self TM_SingleTableDA)
   el reflect.Value, d ui.Dialog, currRow INT, names T_INT_DICT)
   DEFINE ifvarDelRow I_DeleteRow
   WHENEVER ERROR RAISE
-  IF el.canAssignToVariable(ifvarDelRow) THEN
-    CALL el.assignToVariable(ifvarDelRow)
+  IF self.o.delegateDA IS NOT NULL --first check array delegate
+    AND self.o.delegateDA.canAssignToVariable(ifvarDelRow) THEN
     CALL ifvarDelRow.DeleteRow(d, currRow)
-  ELSE
-    VAR sqlDATableCount = self.tableNamesDA.getKeys().getLength()
-    MYASSERT(sqlDATableCount == 1)
-    VAR tabName = self.tableNamesDA.getKeys()[1]
-    CALL sql2array.deleteRecordInDB(el, names, tabName, self.o.qualifiedNames)
+  ELSE --then element delegate
+    IF el.canAssignToVariable(ifvarDelRow) THEN
+      CALL el.assignToVariable(ifvarDelRow)
+      CALL ifvarDelRow.DeleteRow(d, currRow)
+    ELSE
+      VAR sqlDATableCount = self.tableNamesDA.getKeys().getLength()
+      MYASSERT(sqlDATableCount == 1)
+      VAR tabName = self.tableNamesDA.getKeys()[1]
+      CALL sql2array.deleteRecordInDB(el, names, tabName, self.o.qualifiedNames)
+    END IF
   END IF
   WHENEVER ERROR STOP
 END FUNCTION
@@ -487,8 +550,8 @@ FUNCTION (self TM_SingleTableDA)
   DEFINE el reflect.Value
   LET currRow = d.getCurrentRow(self.o.browseRecord)
   LET int_flag = FALSE
-  MYASSERT(currRow > 0 AND currRow <= arrval.getLength())
-  LET el = arrval.getArrayElement(currRow)
+  MYASSERT(currRow > 0 AND currRow <= arrVal.getLength())
+  LET el = arrVal.getArrayElement(currRow)
   IF NOT int_flag THEN
     IF fgldialog.fgl_winQuestion(
         title: "Attention",
@@ -502,7 +565,7 @@ FUNCTION (self TM_SingleTableDA)
         BEGIN WORK
         CALL self.callDeleteRow(el, d, currRow, names)
         COMMIT WORK
-        CALL arrval.deleteArrayElement(currRow)
+        CALL arrVal.deleteArrayElement(currRow)
       CATCH
         CALL fgl_winMessage(
           title: "The deletion failed failed",
@@ -516,7 +579,7 @@ FUNCTION (self TM_SingleTableDA)
       LET int_flag = TRUE
     END IF
   END IF
-  CALL self.checkRowBoundActions(d, arrval)
+  CALL self.checkRowBoundActions(d, arrVal)
 END FUNCTION
 
 PRIVATE FUNCTION appendClickableImageColumn(
@@ -556,16 +619,20 @@ PRIVATE FUNCTION (self TM_SingleTableDA) checkClickableImages() RETURNS()
   MYASSERT(l.getLength() == 1)
   LET t = l.item(1)
   IF self.o.hasUpdate THEN
-    CALL appendClickableImageColumn(t, IMG_MOD, "update")
+    CALL appendClickableImageColumn(t, IMG_MOD, OA_update)
   END IF
   IF self.o.hasDelete THEN
-    CALL appendClickableImageColumn(t, IMG_DEL, "delete")
+    CALL appendClickableImageColumn(t, IMG_DEL, OA_delete)
   END IF
 END FUNCTION
 
 PRIVATE FUNCTION (self TM_SingleTableDA) setBrowseTitle(filterActive BOOLEAN)
-  CALL fgl_settitle(
-    SFMT("%1 %2", self.o.browseTitle, IIF(filterActive, "filtered", "all")))
+  IF NOT self.o.hasFilter THEN
+    CALL fgl_settitle(self.o.browseTitle)
+  ELSE
+    CALL fgl_settitle(
+      SFMT("%1 %2", self.o.browseTitle, IIF(filterActive, "filtered", "all")))
+  END IF
 END FUNCTION
 
 PRIVATE FUNCTION (self TM_SingleTableDA) getFilterForm() RETURNS STRING
@@ -607,13 +674,13 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
     CALL d.setFieldValue(self.filter[i].name, self.filter[i].value)
   END FOR
   --
-  CALL d.addTrigger("ON ACTION accept")
-  CALL d.addTrigger("ON ACTION cancel")
+  CALL d.addTrigger(ON_ACTION_accept)
+  CALL d.addTrigger(ON_ACTION_cancel)
   WHILE TRUE
     CASE d.nextEvent()
-      WHEN "ON ACTION accept"
+      WHEN ON_ACTION_accept
         CALL d.accept()
-      WHEN "ON ACTION cancel"
+      WHEN ON_ACTION_cancel
         CALL d.close()
         CALL utils.closeDynamicWindow(winId)
         RETURN NULL, FALSE
@@ -1007,9 +1074,10 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
       VAR tabName = self.tableNamesINPUT.getKeys()[1]
       --DISPLAY "tabName:", tabName
       IF update THEN
-        CALL updateRecordInDB(recordVal, names, tabName, self.o.qualifiedNames)
+        CALL sql2array.updateRecordInDBWithNames(
+          recordVal, names, tabName, self.o.qualifiedNames)
       ELSE
-        CALL insertRecordIntoDB(
+        CALL sql2array.insertRecordIntoDBWithNames(
           recordVal, names, tabName, self.o.qualifiedNames)
       END IF
     END IF
@@ -1027,10 +1095,10 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
   DEFINE d ui.Dialog
   DEFINE winId INT
   DEFINE handled BOOLEAN
-  DEFINE ifvarII I_InitInput
+  DEFINE ifvarII I_InitINPUT
   DEFINE ifvarBF I_BeforeField
   DEFINE ifvarAF I_AfterField
-  DEFINE ifvarOA I_OnActionInInput
+  DEFINE ifvarOA I_OnActionInINPUT
   DEFINE ifvarIE I_OnEventInINPUT
   DEFINE names T_INT_DICT
   DEFINE fields T_fields
@@ -1052,8 +1120,8 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
   CALL self.describeFieldsForINPUT(trec, fields) RETURNING names
   --DISPLAY "fields:",util.JSON.stringify(fields)
   LET d = ui.Dialog.createInputByName(fields)
-  CALL d.addTrigger("ON ACTION accept")
-  CALL d.addTrigger("ON ACTION cancel")
+  CALL d.addTrigger(ON_ACTION_accept)
+  CALL d.addTrigger(ON_ACTION_cancel)
   -- copy values from Array to Input
   CALL copyRecValues2DlgValues(
     recordVal, trec, trec.getFieldCount(), d, names, self.o.qualifiedNames)
@@ -1113,9 +1181,9 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
         END IF
     END CASE
     CASE ev
-      WHEN "ON ACTION accept"
+      WHEN ON_ACTION_accept
         CALL d.accept()
-      WHEN "ON ACTION cancel"
+      WHEN ON_ACTION_cancel
         LET int_flag = TRUE
         EXIT WHILE
       WHEN "AFTER INPUT"

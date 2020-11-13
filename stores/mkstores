@@ -9,6 +9,7 @@ export FGLLDPATH="$PWD"
 pushd "$PWD" >/dev/null
 cd $STORESDIR
 #we recompile everything always: hence avoid version clashes
+unset FGLPROFILE
 fglcomp -r -M -Wall -Wno-stdsql  mkstores.4gl
 if [ $? -ne 0 ] ; then
   exit 1

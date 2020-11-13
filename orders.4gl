@@ -2,8 +2,10 @@
 IMPORT reflect
 IMPORT util
 IMPORT FGL utils
+IMPORT FGL utils_customer
 IMPORT FGL sDAdyn
 IMPORT FGL customers
+IMPORT FGL items
 SCHEMA stores
 
 --the 'TM_' prefix indicates: this type has Methods
@@ -11,10 +13,12 @@ SCHEMA stores
 --{ Begin TM_orders
 TYPE TM_orders RECORD --TODO: add IMPLEMENTS
   o_arr DYNAMIC ARRAY OF RECORD LIKE orders.*,
-  browseOrders BOOLEAN
+  browseOrders BOOLEAN,
+  custName STRING
 END RECORD
 
 CONSTANT SHOW_CUSTOMER = "show_customer"
+CONSTANT SHOW_ITEMS = "show_items"
 
 FUNCTION (self TM_orders) InitDA(sdi I_SingleTableDA, d ui.Dialog)
   DISPLAY "TM_orders InitDA :", self.browseOrders
@@ -22,6 +26,8 @@ FUNCTION (self TM_orders) InitDA(sdi I_SingleTableDA, d ui.Dialog)
     CALL sdi.addOnActionRowBound(d, SHOW_CUSTOMER)
     CALL d.setActionText(SHOW_CUSTOMER, "Show Customer")
   END IF
+  CALL sdi.addOnActionRowBound(d, SHOW_ITEMS)
+  CALL d.setActionText(SHOW_ITEMS, "Show Items")
 END FUNCTION
 
 FUNCTION (self TM_orders) OnActionInDA(actionName STRING, row INT)
@@ -36,20 +42,40 @@ FUNCTION (self TM_orders) OnActionInDA(actionName STRING, row INT)
       self.o_arr[row].customer_num
     CASE actionName
       WHEN SHOW_CUSTOMER
-        CALL customers.show_cust(self.o_arr[row].customer_num)
+        CALL utils_customer.showCustomer(self.o_arr[row].customer_num)
+      WHEN SHOW_ITEMS
+        CALL items.showItems(self.o_arr[row].order_num, self.custName)
     END CASE
   END IF
+END FUNCTION
+
+FUNCTION (self TM_orders) DeleteRow(d ui.Dialog, row INT)
+  UNUSED(d)
+  WHENEVER ERROR RAISE
+  VAR num = self.o_arr[row].order_num
+  DELETE FROM items WHERE @order_num = num
+  DELETE FROM orders WHERE @order_num = num
+  WHENEVER ERROR STOP
 END FUNCTION
 
 FUNCTION (self TM_orders) checkInterfaces()
   --surrounds the missing IMPLEMENTS with a compiler check
   DEFINE iDA I_InitDA
   DEFINE iOA I_OnActionInDA
+  DEFINE iDR I_DeleteRow
   MYASSERT(FALSE)
   LET iDA = self --the compiler checks if TM_orders implements I_InitDA
   LET iOA = self --the compiler checks if TM_orders implements I_OnActionInDA
+  LET iDR = self --the compiler checks if TM_orders implements I_DeleteRow
 END FUNCTION
 --} End TM_orders
+
+--TYPE T_Items RECORD LIKE items.*
+FUNCTION showItems(order_num LIKE orders.order_num)
+  --DEFINE items DYNAMIC ARRAY OF T_Items
+  UNUSED(order_num)
+  --DEFINE opts sDAdyn.T_SingleTableDAOptions =
+END FUNCTION
 
 FUNCTION showOrders(
   customer_num LIKE customer.customer_num,
@@ -69,13 +95,15 @@ FUNCTION showOrders(
     LET opts.sqlAll = "SELECT * FROM ORDERS"
     LET opts.hasFilter = TRUE
     LET opts.hasUpdate = TRUE
+    LET opts.hasDelete = TRUE
+    LET opts.autoPhantom = TRUE
     LET mo.browseOrders = TRUE
   ELSE
     LET opts.sqlAll =
       SFMT("SELECT * FROM ORDERS WHERE customer_num = %1", customer_num)
+    LET mo.custName = SFMT("%1 %2", fname CLIPPED, lname CLIPPED)
     LET opts.browseTitle =
-      SFMT("Orders of Customer %1: %2 %3",
-        customer_num, fname CLIPPED, lname CLIPPED)
+      SFMT("Orders of Customer %1: %2", customer_num, mo.custName)
     LET mo.browseOrders = FALSE
   END IF
   CALL sDAdyn.browseArray(opts)

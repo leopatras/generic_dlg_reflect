@@ -9,9 +9,9 @@ SCHEMA stores
 --the 'TM_' prefix indicates: this type has Methods
 --vs the 'T_' prefix : this type doesn't have Methods
 --{ Begin TM_customer
-TYPE TM_customer RECORD --TODO: add IMPLEMENTS
-    cust RECORD LIKE customer.*,
-    flagNotUsed BOOLEAN --for ex:usage in dialog
+PUBLIC TYPE TM_customer RECORD --TODO: add IMPLEMENTS
+  cust RECORD LIKE customer.*,
+  flagNotUsed BOOLEAN --for ex:usage in dialog
 END RECORD
 
 --method called by the browseArray function
@@ -19,6 +19,18 @@ END RECORD
 FUNCTION (self TM_customer) BeforeRow(d ui.Dialog, row INT) RETURNS()
   DISPLAY SFMT("customer BeforeRow:%1", row)
   CALL checkOrders(d, self.cust.customer_num)
+END FUNCTION
+
+FUNCTION (self TM_customer) CanUpdateRow(row INT) RETURNS BOOLEAN
+  UNUSED(self)
+  DISPLAY SFMT("customer CanUpdateRow:%1", row)
+  RETURN TRUE
+END FUNCTION
+
+FUNCTION (self TM_customer) CanDeleteRow(row INT) RETURNS BOOLEAN
+  UNUSED(row) --normally we never need the row param
+  --we only allow to delete a customer without orders
+  RETURN count_orders(self.cust.customer_num) == 0
 END FUNCTION
 
 PRIVATE FUNCTION count_orders(customer_num LIKE customer.customer_num)
@@ -47,7 +59,8 @@ FUNCTION (self TM_customer) OnActionInDA(actionName STRING, row INT) RETURNS()
   DISPLAY SFMT("OnActionInDA actionName:'%1',row:%2", actionName, row)
   CASE actionName
     WHEN SHOW_ORDERS
-      CALL orders.showOrders(self.cust.customer_num, self.cust.fname, self.cust.lname)
+      CALL orders.showOrders(
+        self.cust.customer_num, self.cust.fname, self.cust.lname)
     OTHERWISE
       DISPLAY "actionName:'", actionName, "' not handled"
   END CASE
@@ -101,7 +114,7 @@ FUNCTION (self TM_customer)
   DISPLAY SFMT("AFTER FIELD field:%1 value:%2 oldValue:%3",
     fieldName, d.getFieldValue(fieldName), oldValue)
   CASE
-    WHEN fieldName == cols_customer.C_zipcode AND LENGTH(self.cust.zipcode) <> 5
+    WHEN fieldName == cols_customer.C_zipcode AND length(self.cust.zipcode) <> 5
       DISPLAY fieldName,":'", self.cust.zipcode, "'"
       RETURN "Zipcode must have 5 digits"
   END CASE
@@ -122,7 +135,8 @@ FUNCTION (self TM_customer) checkInterfaces()
   --dummy func to enable a compiler check until IMPLEMENTS is there
   DEFINE iAR I_AfterRow
   DEFINE iBR I_BeforeRow
-  DEFINE iII I_InitInput
+  DEFINE iUR I_CanUpdateRow
+  DEFINE iII I_InitINPUT
   DEFINE iIE I_OnEventInINPUT
   DEFINE iBF I_BeforeField
   DEFINE iAF I_AfterField
@@ -130,6 +144,7 @@ FUNCTION (self TM_customer) checkInterfaces()
   MYASSERT(FALSE)
   LET iAR = self --the compiler checks if TM_customer implements I_AfterRow
   LET iBR = self --the compiler checks if TM_customer implements I_BeforeRow
+  LET iUR = self
   LET iAF = self
   LET iBF = self
   LET iII = self
@@ -144,7 +159,9 @@ END FUNCTION
 --we can't have ARRAY's with methods...but
 --we can define a RECORD...
 TYPE TM_customers RECORD --TODO IMPLEMENTS I_BeforeRow,
-  c_arr DYNAMIC ARRAY OF TM_customer --..and have the data array 'c_arr' as a member
+  c_arr
+    DYNAMIC ARRAY OF
+    TM_customer --..and have the data array 'c_arr' as a member
 END RECORD
 
 CONSTANT SHOW_ORDERS = "show_orders"
@@ -177,7 +194,7 @@ END FUNCTION
 
 --method called by the browseArray function
 --on *each* BEFORE ROW of the DISPLAY ARRAY (row may be 0)
-FUNCTION (self TM_customers) BeforeRow(d ui.Dialog,row INT)
+FUNCTION (self TM_customers) BeforeRow(d ui.Dialog, row INT)
   UNUSED(self)
   UNUSED(d)
   DISPLAY SFMT("TM_customers BeforeRow:%1", row)
@@ -198,17 +215,6 @@ END FUNCTION
 
 --} End TM_customers
 
-PUBLIC FUNCTION show_cust(customer_num LIKE customer.customer_num)
-  DEFINE cust TM_customer
-  SELECT * INTO cust.* FROM customer WHERE @customer_num = customer_num
-  OPEN WINDOW show_cust WITH FORM "customers_singlerow"
-  DISPLAY cust.* TO scr.*
-  MENU
-    COMMAND "Exit"
-      EXIT MENU
-  END MENU
-  CLOSE WINDOW show_cust
-END FUNCTION
 
 FUNCTION main()
   DEFINE d TM_customers
@@ -216,17 +222,18 @@ FUNCTION main()
     (sqlAll: "SELECT * FROM CUSTOMER AS cust",
       browseForm: "customers",
       browseRecord: "scr",
-      inputForm: "customers_singlerow",
-      filterForm: "customers_singlerow",
-      autoPhantom: TRUE, --tolerates missing FormFields/TableColumns in the forms
-      addClickableImages: TRUE,
-      qualifiedNames:FALSE,
+      --inputForm: "customers_singlerow",
+      --filterForm: "customers_singlerow",
+      autoPhantom:
+         TRUE, --tolerates missing FormFields/TableColumns in the forms
+      addClickableImages: FALSE,
       hasUpdate: TRUE,
       hasAppend: TRUE,
       hasDelete: TRUE,
       hasFilter: TRUE -- ,filterInitially:TRUE
       )
   CALL utils.dbconnect()
+  --CALL showCustomer(101)
   --we pass the reflect value of the TM_customers variable
   --the browse array function calls various methods of the
   --TM_customers while being active
