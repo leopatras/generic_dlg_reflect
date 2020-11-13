@@ -1,3 +1,5 @@
+#-- show orders in 2 modes: browse all orders 
+#-- or show the orders for a specific customer
 &include "myassert.inc"
 IMPORT reflect
 IMPORT util
@@ -8,8 +10,6 @@ IMPORT FGL customers
 IMPORT FGL items
 SCHEMA stores
 
---the 'TM_' prefix indicates: this type has Methods
---vs the 'T_' prefix : this type doesn't have Methods
 --{ Begin TM_orders
 TYPE TM_orders RECORD --TODO: add IMPLEMENTS
   o_arr DYNAMIC ARRAY OF RECORD LIKE orders.*,
@@ -21,7 +21,6 @@ CONSTANT SHOW_CUSTOMER = "show_customer"
 CONSTANT SHOW_ITEMS = "show_items"
 
 FUNCTION (self TM_orders) InitDA(sdi I_SingleTableDA, d ui.Dialog)
-  DISPLAY "TM_orders InitDA :", self.browseOrders
   IF self.browseOrders THEN
     CALL sdi.addOnActionRowBound(d, SHOW_CUSTOMER)
     CALL d.setActionText(SHOW_CUSTOMER, "Show Customer")
@@ -35,11 +34,6 @@ FUNCTION (self TM_orders) OnActionInDA(actionName STRING, row INT)
   DISPLAY SFMT("ordersWithMethods OnActionInDA actionName:'%1',row:%2",
     actionName, row)
   IF row >= 1 AND row <= self.o_arr.getLength() THEN
-    --shows how to access the array
-    DISPLAY "curr order:",
-      self.o_arr[row].order_num,
-      "cust:",
-      self.o_arr[row].customer_num
     CASE actionName
       WHEN SHOW_CUSTOMER
         CALL utils_customer.showCustomer(self.o_arr[row].customer_num)
@@ -69,13 +63,6 @@ FUNCTION (self TM_orders) checkInterfaces()
   LET iDR = self --the compiler checks if TM_orders implements I_DeleteRow
 END FUNCTION
 --} End TM_orders
-
---TYPE T_Items RECORD LIKE items.*
-FUNCTION showItems(order_num LIKE orders.order_num)
-  --DEFINE items DYNAMIC ARRAY OF T_Items
-  UNUSED(order_num)
-  --DEFINE opts sDAdyn.T_SingleTableDAOptions =
-END FUNCTION
 
 FUNCTION showOrders(
   customer_num LIKE customer.customer_num,
@@ -111,5 +98,6 @@ END FUNCTION
 
 FUNCTION main()
   CALL utils.dbconnect()
+  --browse all orders
   CALL showOrders(-1, "", "")
 END FUNCTION

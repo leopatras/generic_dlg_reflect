@@ -30,6 +30,14 @@ PUBLIC TYPE T_fields DYNAMIC ARRAY OF RECORD
   type STRING -- a column type
 END RECORD
 
+PUBLIC TYPE T_Action RECORD
+  name STRING,
+  image STRING,
+  text STRING
+END RECORD
+
+PUBLIC TYPE T_ACTION_ARR DYNAMIC ARRAY OF T_Action
+
 DEFINE mShowStack BOOLEAN
 DEFINE mWindows ARRAY[10] OF BOOLEAN
 
@@ -135,7 +143,6 @@ FUNCTION getArrayRecEl(
   LET field = getArrayRecField(arrVal, idx, member)
   RETURN field.toString()
 END FUNCTION
-
 
 --function to set arbitray member values for an array index ( ARRAY OF RECORD )
 FUNCTION setArrayRecEl(
@@ -470,7 +477,9 @@ FUNCTION append42f(fname STRING) RETURNS STRING
 END FUNCTION
 
 FUNCTION getFieldName(field om.DomNode, qualified BOOLEAN) RETURNS STRING
-  RETURN IIF(qualified, field.getAttribute(A_name), field.getAttribute(A_colName))
+  RETURN IIF(qualified,
+    field.getAttribute(A_name),
+    field.getAttribute(A_colName))
 END FUNCTION
 
 FUNCTION scanTable(t om.DomNode, qualified BOOLEAN) RETURNS T_STRING_DICT
@@ -482,7 +491,7 @@ FUNCTION scanTable(t om.DomNode, qualified BOOLEAN) RETURNS T_STRING_DICT
       = t.selectByTagName(IIF(loop == 1, TAG_TableColumn, TAG_PhantomColumn))
     FOR i = 1 TO l2.getLength()
       VAR tc = l2.item(i)
-      LET name = getFieldName(tc,qualified)
+      LET name = getFieldName(tc, qualified)
       LET dict[name] = tc.getAttribute(A_sqlTabName)
     END FOR
   END FOR
@@ -493,21 +502,23 @@ FUNCTION getCurrentForm() RETURNS om.DomNode
   DEFINE win ui.Window
   DEFINE frm ui.Form
   MYASSERT((win := ui.Window.getCurrent()) IS NOT NULL)
-  MYASSERT((frm := win.getForm()) IS NOT NULL )
+  MYASSERT((frm := win.getForm()) IS NOT NULL)
   RETURN frm.getNode()
 END FUNCTION
 
-FUNCTION getTableByScreenRecord(formRoot om.DomNode,screenRec STRING) RETURNS om.DomNode
+FUNCTION getTableByScreenRecord(
+  formRoot om.DomNode, screenRec STRING)
+  RETURNS om.DomNode
   MYASSERT(formRoot IS NOT NULL)
-  MYASSERT(formRoot.getTagName()==TAG_Form)
+  MYASSERT(formRoot.getTagName() == TAG_Form)
   VAR l
     = formRoot.selectByPath(
       SFMT('//' || TAG_Table || '[@' || A_tabName || '="%1"]', screenRec))
-  VAR len=l.getLength()
-  IF len>0 THEN
+  VAR len = l.getLength()
+  IF len > 0 THEN
     MYASSERT(len) --there can be only one table with a screenRec
-    VAR tabNode=l.item(1)
-    MYASSERT(tabNode.getTagName()==TAG_Table)
+    VAR tabNode = l.item(1)
+    MYASSERT(tabNode.getTagName() == TAG_Table)
     RETURN tabNode
   END IF
   RETURN NULL
@@ -533,7 +544,7 @@ FUNCTION readNamesFromScreenRecord(
     LET root = frmO.getNode()
   END IF
   --first search: Table
-  VAR tabNode=getTableByScreenRecord(root,screenRec)
+  VAR tabNode = getTableByScreenRecord(root, screenRec)
   IF tabNode IS NOT NULL THEN
     RETURN scanTable(tabNode, qualified)
   END IF
@@ -546,7 +557,8 @@ FUNCTION readNamesFromScreenRecord(
 END FUNCTION
 
 FUNCTION getAllRealInputtableFieldNames(
-  f42f STRING,qualified BOOLEAN) RETURNS T_STRING_ARR
+  f42f STRING, qualified BOOLEAN)
+  RETURNS T_STRING_ARR
   DEFINE doc om.DomDocument
   DEFINE namesdict T_STRING_DICT
   MYASSERT((doc := om.DomDocument.createFromXmlFile(f42f)) IS NOT NULL)
@@ -598,7 +610,7 @@ PRIVATE FUNCTION addFieldNamesToDict(
   VAR len = l.getLength()
   FOR i = 1 TO len
     VAR node = l.item(i)
-    LET name = getFieldName(node,qualified)
+    LET name = getFieldName(node, qualified)
     LET fieldsDict[name] = node.getAttribute(A_sqlTabName)
   END FOR
 END FUNCTION
@@ -639,85 +651,126 @@ FUNCTION getInputColumnNamesAndTableNames(
   RETURN namesdict
 END FUNCTION
 
---FUNCTION fieldsFromTable(tabname) RETURNS T_fields
---  SELE
---END FUNCTION
+FUNCTION checkCloseScreen()
+  VAR w = ui.Window.forName("screen")
+  IF w IS NULL THEN
+    RETURN
+  END IF
+  IF w.getForm() IS NOT NULL THEN
+    RETURN
+  END IF
+  --screen has no usage we can close it
+  DISPLAY "CLOSE screen, no form"
+  CLOSE WINDOW screen
+END FUNCTION
+
+FUNCTION addActionsToFormToolBar(actionList T_ACTION_ARR)
+  DEFINE tb om.DomNode
+  VAR form = getCurrentForm()
+  VAR list = form.selectByTagName(TAG_ToolBar)
+  VAR haveItems = FALSE
+  IF list.getLength() > 0 THEN
+    LET tb = list.item(1)
+    LET haveItems = tb.selectByTagName(TAG_ToolBarItem).getLength() > 0
+  ELSE
+    --create one
+    LET tb = form.createChild(TAG_ToolBar)
+    CALL form.appendChild(tb)
+  END IF
+  IF haveItems THEN
+    CALL tb.appendChild(tb.createChild(TAG_ToolBarSeparator))
+  END IF
+  VAR len = actionList.getLength()
+  VAR i INT
+  FOR i = 1 TO len
+    VAR item = tb.createChild(TAG_ToolBarItem)
+    VAR action = actionList[i]
+    CALL item.setAttribute(A_name, action.name)
+    IF action.image IS NOT NULL THEN
+      CALL item.setAttribute(A_image, action.image)
+    END IF
+    IF action.text IS NOT NULL THEN
+      CALL item.setAttribute(A_text, action.text)
+    END IF
+    CALL tb.appendChild(item)
+  END FOR
+END FUNCTION
 
 -- createDisplayArrayForm {{{
-FUNCTION createDisplayArrayForm(tabName STRING,name STRING,fields T_fields)
-    VAR w = ui.Window.getCurrent()
-    VAR f = w.createForm("test")
-    VAR form = f.getNode()
-    CALL form.setAttribute(A_name, name)
-    CALL form.setAttribute(A_text,tabName)
-    VAR window = form.getParent()
-    CALL window.setAttribute(A_text, tabName)
-    VAR grid = form.createChild(TAG_Grid)
-    CALL grid.setAttribute(A_width, 1)
-    CALL grid.setAttribute(A_height, 1)
-    VAR table = grid.createChild(TAG_Table)
-    CALL table.setAttribute(A_doubleClick, "update")
-    CALL table.setAttribute(A_tabName, tabName)
-    CALL table.setAttribute(A_pageSize, 10)
-    CALL table.setAttribute(A_gridWidth, 1)
-    CALL table.setAttribute(A_gridHeight, 1)
-    VAR i INT
-    FOR i = 1 TO fields.getLength()
-        VAR formfield = table.createChild(TAG_TableColumn)
-        VAR colName = fields[i].name
-        VAR colType = fields[i].type
-        CALL formfield.setAttribute(A_text, colName)
-        CALL formfield.setAttribute(A_colName, colName)
-        CALL formfield.setAttribute(A_name, tabName || "." || colName)
-        CALL formfield.setAttribute(A_sqlType, colType)
-        --CALL formfield.setAttribute("fieldId", i)
-        CALL formfield.setAttribute(A_tabIndex, i + 1)
-        VAR edit = formfield.createChild(TAG_Edit)
-        CALL edit.setAttribute(A_width, bestWidth(colType))
-    END FOR
-    --CALL form.writeXml("test.42f")
+FUNCTION createDisplayArrayForm(tabName STRING, name STRING, fields T_fields)
+  VAR w = ui.Window.getCurrent()
+  VAR f = w.createForm("test")
+  VAR form = f.getNode()
+  CALL form.setAttribute(A_name, name)
+  CALL form.setAttribute(A_text, tabName)
+  VAR window = form.getParent()
+  CALL window.setAttribute(A_text, tabName)
+  VAR grid = form.createChild(TAG_Grid)
+  CALL grid.setAttribute(A_width, 1)
+  CALL grid.setAttribute(A_height, 1)
+  VAR table = grid.createChild(TAG_Table)
+  CALL table.setAttribute(A_doubleClick, "update")
+  CALL table.setAttribute(A_tabName, tabName)
+  CALL table.setAttribute(A_pageSize, 10)
+  CALL table.setAttribute(A_gridWidth, 1)
+  CALL table.setAttribute(A_gridHeight, 1)
+  VAR i INT
+  FOR i = 1 TO fields.getLength()
+    VAR formfield = table.createChild(TAG_TableColumn)
+    VAR colName = fields[i].name
+    VAR colType = fields[i].type
+    CALL formfield.setAttribute(A_text, colName)
+    CALL formfield.setAttribute(A_colName, colName)
+    CALL formfield.setAttribute(A_name, tabName || "." || colName)
+    CALL formfield.setAttribute(A_sqlType, colType)
+    --CALL formfield.setAttribute("fieldId", i)
+    CALL formfield.setAttribute(A_tabIndex, i + 1)
+    VAR edit = formfield.createChild(TAG_Edit)
+    CALL edit.setAttribute(A_width, bestWidth(colType))
+  END FOR
+  --CALL form.writeXml("test.42f")
 END FUNCTION
 
 FUNCTION bestWidth(t)
-    DEFINE t STRING
-    DEFINE i, j, len INT
-    IF (i := t.getIndexOf('(', 1)) > 0 THEN
-        IF (j := t.getIndexOf(',', i + 1)) == 0 THEN
-            LET j = t.getIndexOf(')', i + 1)
-        END IF
-        LET len = t.subString(i + 1, j - 1)
-        LET t = t.subString(1, i - 1)
+  DEFINE t STRING
+  DEFINE i, j, len INT
+  IF (i := t.getIndexOf('(', 1)) > 0 THEN
+    IF (j := t.getIndexOf(',', i + 1)) == 0 THEN
+      LET j = t.getIndexOf(')', i + 1)
     END IF
-    CASE t
-        WHEN "BOOLEAN"
-            RETURN 1
-        WHEN "TINYINT"
-            RETURN 4
-        WHEN "SMALLINT"
-            RETURN 6
-        WHEN "INTEGER"
-            RETURN 11
-        WHEN "BIGINT"
-            RETURN 20
-        WHEN "SMALLFLOAT"
-            RETURN 14
-        WHEN "FLOAT"
-            RETURN 14
-        WHEN "STRING"
-            RETURN 20
-        WHEN "DECIMAL"
-            RETURN IIF(len IS NULL, 16, len + 2)
-        WHEN "MONEY"
-            RETURN IIF(len IS NULL, 16, len + 2)
-        WHEN "CHAR"
-            RETURN IIF(len IS NULL, 1, IIF(len > 20, 20, len))
-        WHEN "VARCHAR"
-            RETURN IIF(len IS NULL, 1, IIF(len > 20, 20, len))
-        WHEN "DATE"
-            RETURN 10
-        OTHERWISE
-            RETURN 20
-    END CASE
+    LET len = t.subString(i + 1, j - 1)
+    LET t = t.subString(1, i - 1)
+  END IF
+  CASE t
+    WHEN "BOOLEAN"
+      RETURN 1
+    WHEN "TINYINT"
+      RETURN 4
+    WHEN "SMALLINT"
+      RETURN 6
+    WHEN "INTEGER"
+      RETURN 11
+    WHEN "BIGINT"
+      RETURN 20
+    WHEN "SMALLFLOAT"
+      RETURN 14
+    WHEN "FLOAT"
+      RETURN 14
+    WHEN "STRING"
+      RETURN 20
+    WHEN "DECIMAL"
+      RETURN IIF(len IS NULL, 16, len + 2)
+    WHEN "MONEY"
+      RETURN IIF(len IS NULL, 16, len + 2)
+    WHEN "CHAR"
+      RETURN IIF(len IS NULL, 1, IIF(len > 20, 20, len))
+    WHEN "VARCHAR"
+      RETURN IIF(len IS NULL, 1, IIF(len > 20, 20, len))
+    WHEN "DATE"
+      RETURN 10
+    OTHERWISE
+      RETURN 20
+  END CASE
 END FUNCTION
 
 --really not nice, but not a road block

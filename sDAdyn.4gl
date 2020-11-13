@@ -101,6 +101,7 @@ PUBLIC TYPE T_SingleTableDAOptions RECORD
   hasUpdate BOOLEAN,
   hasDelete BOOLEAN,
   addClickableImages BOOLEAN,
+  addToolBar BOOLEAN,
   qualifiedNames
       BOOLEAN --if set field names are referenced by "tableName.columnName",
     --and hence also the names in the ARRAY
@@ -237,6 +238,8 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
   CALL self.checkAutoForm(trec)
   LET rec = self.o.browseRecord
   LET winId = utils.openDynamicWindow(self.o.browseForm)
+  CALL utils.checkCloseScreen()
+  CALL self.checkToolBar()
   CALL self.checkClickableImages()
   LET names = self.describeFieldsForRecord(rec, self.o.browseForm, trec, fields)
   CALL checkDATEjustify(trec, names, rec, self.o.qualifiedNames)
@@ -1221,4 +1224,58 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
   END IF
   CALL d.close()
   CALL utils.closeDynamicWindow(winId)
+END FUNCTION
+
+PRIVATE FUNCTION (self TM_SingleTableDA) checkToolBar()
+  DEFINE actions T_ACTION_ARR
+  DEFINE len INT
+  IF NOT self.o.addToolBar THEN
+    RETURN
+  END IF
+  VAR form = utils.getCurrentForm()
+  VAR tabNode = utils.getTableByScreenRecord(form, self.o.browseRecord)
+  IF tabNode IS NULL THEN
+    --add navigation toolbar.. not really needed for tables
+    LET len = actions.getLength() + 1
+    LET actions[len].name = "firstrow"
+    LET len = actions.getLength() + 1
+    LET actions[len].name = "prevrow"
+    LET len = actions.getLength() + 1
+    LET actions[len].name = "nextrow"
+    LET len = actions.getLength() + 1
+    LET actions[len].name = "lastrow"
+    CALL utils.addActionsToFormToolBar(actions)
+    CALL actions.clear()
+  END IF
+  IF self.o.hasUpdate THEN
+    LET len = actions.getLength() + 1
+    LET actions[len].name = OA_update
+    LET actions[len].image = "fa-edit"
+  END IF
+  IF self.o.hasDelete THEN
+    LET len = actions.getLength() + 1
+    LET actions[len].name = OA_delete
+    LET actions[len].image = "fa-trash-o"
+  END IF
+  IF self.o.hasAppend THEN
+    LET len = actions.getLength() + 1
+    LET actions[len].name = "append"
+    LET actions[len].image = "fa-plus"
+  END IF
+  DISPLAY ">>>>actions:", util.JSON.stringify(actions)
+  IF actions.getLength() > 0 THEN
+    CALL utils.addActionsToFormToolBar(actions)
+    CALL actions.clear()
+  END IF
+  IF self.o.hasFilter THEN
+    LET len = actions.getLength() + 1
+    LET actions[len].name = "filter"
+    LET actions[len].image = "fa-filter"
+    LET actions[len].text = "Filter"
+    LET len = actions.getLength() + 1
+    LET actions[len].name = "clear_filter"
+    LET actions[len].image = "clear_filter.svg"
+    LET actions[len].text = "Clear F."
+    CALL utils.addActionsToFormToolBar(actions)
+  END IF
 END FUNCTION
