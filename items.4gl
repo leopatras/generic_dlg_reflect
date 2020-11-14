@@ -10,7 +10,7 @@ SCHEMA stores
 FUNCTION showItems(
   order_num LIKE orders.order_num, custName STRING)
   DEFINE arr DYNAMIC ARRAY OF RECORD LIKE items.*
-  DEFINE opts sDAdyn.T_SingleTableDAOptions 
+  DEFINE opts T_SingleTableDAOptions 
   LET opts.arrayValue = reflect.Value.valueOf(arr)
   LET opts.hasUpdate = TRUE
   LET opts.hasDelete = TRUE

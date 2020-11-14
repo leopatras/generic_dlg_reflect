@@ -69,7 +69,7 @@ END FUNCTION
 
 FUNCTION main()
   DEFINE arr DYNAMIC ARRAY OF TM_custex
-  DEFINE opts sDAdyn.T_SingleTableDAOptions =
+  DEFINE opts T_SingleTableDAOptions =
     (sqlAll:
          "SELECT * FROM CUSTOMER AS cust, cust_ex WHERE cust.customer_num=cust_ex.customer_num",
       browseForm: "cust_ex",

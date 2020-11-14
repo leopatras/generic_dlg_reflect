@@ -69,7 +69,7 @@ FUNCTION showOrders(
   fname LIKE customer.fname,
   lname LIKE customer.lname)
   DEFINE mo TM_orders
-  DEFINE opts sDAdyn.T_SingleTableDAOptions =
+  DEFINE opts T_SingleTableDAOptions =
     (browseForm: "orders", browseRecord: "scr")
   --we pass the reflect value of the TM_orders variable
   --the browse array function calls various methods of the

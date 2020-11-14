@@ -1,10 +1,10 @@
+--empty test table to see what row indexes we get in case
+--the array is empty 
 &include "myassert.inc"
 IMPORT reflect
 IMPORT FGL utils
 IMPORT FGL sDAdyn
 SCHEMA stores
---empty test table to see what row indexes we get in case
---the array is empty 
 TYPE TM_empty RECORD 
   arr DYNAMIC ARRAY OF RECORD LIKE empty.*
 END RECORD
@@ -31,9 +31,9 @@ END FUNCTION
 FUNCTION main()
   DEFINE me TM_empty
   CALL utils.dbconnect()
-  VAR opts sDAdyn.T_SingleTableDAOptions =
+  VAR opts T_SingleTableDAOptions =
     (browseForm: "empty", browseRecord: "scr",
-     sqlAll: "SELECT * FROM empty",hasAppend:TRUE,hasDelete:TRUE,hasUpdate:TRUE)
+     sqlAll: "SELECT * FROM empty",hasAppend:TRUE,hasDelete:TRUE,hasUpdate:TRUE,addClickableImages:TRUE)
   LET opts.delegateDA = reflect.Value.valueOf(me)
   LET opts.arrayValue = reflect.Value.valueOf(me.arr)
   CALL sDAdyn.browseArray(opts)

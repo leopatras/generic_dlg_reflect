@@ -10,8 +10,6 @@ IMPORT FGL sql2array
 IMPORT FGL aui_const
 CONSTANT C_RECORD = "RECORD"
 CONSTANT C_AUTO_FORM = "__auto__form__"
-PUBLIC CONSTANT OA_delete = "delete"
-PUBLIC CONSTANT OA_update = "update"
 PUBLIC CONSTANT ON_ACTION_accept = "ON ACTION accept"
 PUBLIC CONSTANT ON_ACTION_cancel = "ON ACTION cancel"
 --the I_ prefix indicates an interface
@@ -79,37 +77,6 @@ PUBLIC TYPE I_InsertOrUpdateOfRow INTERFACE
   InsertOrUpdateOfRow(update BOOLEAN, row INT) RETURNS()
 END INTERFACE
 
---define the public settable members of the
---TM_SingleTableDA type
-PUBLIC TYPE T_SingleTableDAOptions RECORD
-  delegateDA reflect.Value,
-  arrayValue reflect.Value,
-  browseForm STRING,
-  browseRecord STRING,
-  browseTitle STRING,
-  filterForm STRING,
-  filterTitle STRING,
-  hasFilter BOOLEAN,
-  autoPhantom BOOLEAN,
-  inputForm STRING,
-  inputTitle STRING,
-  filterInitially BOOLEAN,
-  sqlAll STRING,
-  sqlFilterBase STRING, --if not set, this defaults to sqlAll
-  sqlFetchByPosition BOOLEAN, --if not set, defaults to fetch by column name
-  hasAppend BOOLEAN,
-  hasUpdate BOOLEAN,
-  hasDelete BOOLEAN,
-  addClickableImages BOOLEAN,
-  addToolBar BOOLEAN,
-  qualifiedNames
-      BOOLEAN --if set field names are referenced by "tableName.columnName",
-    --and hence also the names in the ARRAY
-    --this means RECORDs *must* have sub RECORD names *matching* the table names/aliases
-    --, multiRowSelection BOOLEAN
-    ,
-  tabname STRING --optional tablename
-END RECORD
 
 --PUBLIC TYPE T_MDOptions RECORD
 --  sdopts T_SingleTableDAOptions,
@@ -228,7 +195,6 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
   DEFINE ifvarDR I_CanDeleteRow
   DEFINE ifvarAR I_AfterRow
   DEFINE ifvarOA I_OnActionInDA
-  DEFINE ifvarDA I_InitDA
   DEFINE delegateDA reflect.Value
   LET arrval = self.o.arrayValue
   LET delegateDA = self.o.delegateDA
@@ -322,11 +288,7 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
       END IF
     END IF
     CALL self.setArrayData(d, rec, arrval, trec, names)
-    --call back the delegate for initial add on's of the DISPLAY ARRAY
-    IF delegateDA IS NOT NULL AND delegateDA.canAssignToVariable(ifvarDA) THEN
-      CALL delegateDA.assignToVariable(ifvarDA)
-      CALL ifvarDA.InitDA(self, d)
-    END IF
+    CALL self.handleInitDA(d, arrval)
     CALL self.checkRowBoundActions(d, arrval)
 
     WHILE TRUE -- event loop for dialog d
@@ -432,6 +394,28 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
   END WHILE
   INITIALIZE self.dlgDA TO NULL
   CALL utils.closeDynamicWindow(winId)
+END FUNCTION
+
+FUNCTION (self TM_SingleTableDA) handleInitDA(d ui.Dialog, arrval reflect.Value)
+  DEFINE ifvarDA I_InitDA
+  VAR delegateDA = self.o.delegateDA
+  --call back the delegate for initial add on's of the DISPLAY ARRAY
+  IF delegateDA IS NOT NULL AND delegateDA.canAssignToVariable(ifvarDA) THEN
+    CALL delegateDA.assignToVariable(ifvarDA)
+    CALL ifvarDA.InitDA(self, d)
+  END IF
+  --append an artificial element and check if we can call
+  --the RECORDs InitDA method
+  --of course access to the RECORD itself is useless
+  --but we have a callback opportunity to add row bound actions
+  CALL arrval.appendArrayElement()
+  VAR lastrow = arrval.getLength()
+  VAR el = arrval.getArrayElement(lastrow)
+  IF el.canAssignToVariable(ifvarDA) THEN
+    CALL el.assignToVariable(ifvarDA)
+    CALL ifvarDA.InitDA(self, d)
+  END IF
+  CALL arrval.deleteArrayElement(lastrow)
 END FUNCTION
 
 FUNCTION (self TM_SingleTableDA) checkAutoForm(trec reflect.Type)
@@ -556,14 +540,7 @@ FUNCTION (self TM_SingleTableDA)
   MYASSERT(currRow > 0 AND currRow <= arrVal.getLength())
   LET el = arrVal.getArrayElement(currRow)
   IF NOT int_flag THEN
-    IF fgldialog.fgl_winQuestion(
-        title: "Attention",
-        message: "Do you really want to delete this RECORD?",
-        ans: "yes",
-        items: "yes|no",
-        icon: "quest",
-        dang: 0)
-      == "yes" THEN
+    IF utils.reallyDeleteRecords() THEN
       TRY
         BEGIN WORK
         CALL self.callDeleteRow(el, d, currRow, names)
@@ -654,9 +631,9 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
   DEFINE s, q, sql STRING
   DEFINE fields T_fields
   DEFINE names T_INT_DICT
-
-  IF self.getFilterForm() IS NOT NULL THEN
-    LET winId = utils.openDynamicWindow(self.o.filterForm)
+  VAR filterForm = self.getFilterForm()
+  IF filterForm IS NOT NULL THEN
+    LET winId = utils.openDynamicWindow(filterForm)
     IF self.o.filterTitle IS NULL THEN
       LET self.o.filterTitle =
         SFMT("%1: Input filter criteria", utils.getFormTitle())

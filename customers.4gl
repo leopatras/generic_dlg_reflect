@@ -14,10 +14,36 @@ PUBLIC TYPE TM_customer RECORD --TODO: add IMPLEMENTS
   flagNotUsed BOOLEAN --for ex:usage in dialog
 END RECORD
 
+CONSTANT SHOW_ORDERS = "show_orders"
+--method called by the browseArray function
+--to initialize the DISPLAY ARRAY with a row bound action
+FUNCTION (self TM_customer) InitDA(sdi I_SingleTableDA, d ui.Dialog) RETURNS()
+  UNUSED(self)
+  DISPLAY "init customer DA called"
+  CALL sdi.addOnActionRowBound(d, SHOW_ORDERS)
+  CALL d.setActionText(SHOW_ORDERS, "Show Orders")
+END FUNCTION
+
+--method called by the browseArray function
+--whenever an ON ACTION is triggered
+--the array can be empty in this method
+FUNCTION (self TM_customer) OnActionInDA(actionName STRING, row INT)
+  UNUSED(self)
+  UNUSED(row)
+  --DISPLAY SFMT("customerWithMethods OnActionInDA actionName:'%1',row:%2",
+  --  actionName, row)
+  CASE actionName
+    WHEN SHOW_ORDERS
+      VAR curr = self.cust
+      CALL orders.showOrders(curr.customer_num, curr.fname, curr.lname)
+  END CASE
+END FUNCTION
+
 --method called by the browseArray function
 --whenever a BEFORE ROW of a valid row (row>0 AND row<array.getLength()) is triggered
 FUNCTION (self TM_customer) BeforeRow(d ui.Dialog, row INT) RETURNS()
-  DISPLAY SFMT("customer BeforeRow:%1", row)
+  UNUSED(row)
+  --DISPLAY SFMT("customer BeforeRow:%1", row)
   CALL checkOrders(d, self.cust.customer_num)
 END FUNCTION
 
@@ -27,19 +53,16 @@ FUNCTION (self TM_customer) CanDeleteRow(row INT) RETURNS BOOLEAN
   RETURN count_orders(self.cust.customer_num) == 0
 END FUNCTION
 
-PRIVATE FUNCTION count_orders(
-  customer_num LIKE customer.customer_num)
-  RETURNS INT
+PRIVATE FUNCTION count_orders(num LIKE customer.customer_num) RETURNS INT
   DEFINE n INT
-  SELECT COUNT(*) INTO n FROM orders WHERE @customer_num == customer_num
+  SELECT COUNT(*) INTO n FROM orders WHERE @customer_num == num
   RETURN n
 END FUNCTION
 
-PRIVATE FUNCTION checkOrders(
-  d ui.Dialog, customer_num LIKE customer.customer_num)
-  VAR numOrders = count_orders(customer_num)
+PRIVATE FUNCTION checkOrders(d ui.Dialog, num LIKE customer.customer_num)
+  VAR numOrders = count_orders(num)
   VAR active = numOrders > 0
-  DISPLAY "numOrders:", numOrders, ",active:", active
+  --DISPLAY "numOrders:", numOrders, ",active:", active
   CALL d.setActionActive(SHOW_ORDERS, active)
   CASE numOrders
     WHEN 0
@@ -56,12 +79,9 @@ CONSTANT CUSTOM_ACTION = "Custom Action"
 --method called by the browseArray function
 --whenever the current RECORD is about to be edited for APPEND or UPDATE in an INPUT statement
 --here custon INPUT actions can be added
-FUNCTION (self TM_customer)
-  InitINPUT(
-  sdi I_SingleTableDA, d ui.Dialog)
-  RETURNS()
+FUNCTION (self TM_customer) InitINPUT(sdi I_SingleTableDA, d ui.Dialog)
   UNUSED(self)
-  DISPLAY "init customer INPUT called"
+  --DISPLAY "init customer INPUT called"
   CALL sdi.addOnAction(d, CUSTOM_ACTION)
 END FUNCTION
 
@@ -100,67 +120,24 @@ END FUNCTION
 FUNCTION (self TM_customer) checkInterfaces()
   --dummy func to enable a compiler check until IMPLEMENTS is there
   DEFINE iBR I_BeforeRow
+  DEFINE iDA I_InitDA
   DEFINE iII I_InitINPUT
   DEFINE iAF I_AfterField
-  DEFINE iOA I_OnActionInINPUT
+  DEFINE iOAD I_OnActionInDA
+  DEFINE iOAI I_OnActionInINPUT
   MYASSERT(FALSE)
   LET iBR = self --the compiler checks if TM_customer implements I_BeforeRow
   LET iAF = self
+  LET iDA = self --the compiler checks if TM_customers implements I_InitDA
   LET iII = self
-  --LET iIU = self
-  LET iOA = self
+  LET iOAD = self
+  LET iOAI = self
 END FUNCTION
-
 --} End TM_customer
 
---{ Begin TM_customers
---we can't have ARRAY's with methods...but
---we can define a RECORD...
-TYPE TM_customers RECORD --TODO IMPLEMENTS I_BeforeRow,
-  c_arr
-    DYNAMIC ARRAY OF
-    TM_customer --..and have the data array 'c_arr' as a member
-END RECORD
-
-CONSTANT SHOW_ORDERS = "show_orders"
---method called by the browseArray function
---to initialize the DISPLAY ARRAY with a row bound action
-FUNCTION (self TM_customers) InitDA(sdi I_SingleTableDA, d ui.Dialog) RETURNS()
-  UNUSED(self)
-  DISPLAY "init customer DA called"
-  CALL sdi.addOnActionRowBound(d, SHOW_ORDERS)
-  CALL d.setActionText(SHOW_ORDERS, "Show Orders")
-END FUNCTION
-
---method called by the browseArray function
---whenever an ON ACTION is triggered
---the array can be empty in this method
-FUNCTION (self TM_customers) OnActionInDA(actionName STRING, row INT)
-  DEFINE curr RECORD LIKE customer.*
-  UNUSED(self)
-  DISPLAY SFMT("customerWithMethods OnActionInDA actionName:'%1',row:%2",
-    actionName, row)
-  CASE actionName
-    WHEN SHOW_ORDERS
-      MYASSERT(row >= 0 AND row <= self.c_arr.getLength())
-      LET curr.* = self.c_arr[row].cust.*
-      CALL orders.showOrders(curr.customer_num, curr.fname, curr.lname)
-  END CASE
-END FUNCTION
-
-FUNCTION (self TM_customers) checkInterfaces()
-  --surrounds the missing IMPLEMENTS with a compiler check
-  DEFINE iDA I_InitDA
-  DEFINE iOA I_OnActionInDA
-  MYASSERT(FALSE)
-  LET iDA = self --the compiler checks if TM_customers implements I_InitDA
-  LET iOA = self --the compiler checks if TM_customers implements I_OnActionInDA
-END FUNCTION
---} End TM_customers
-
 FUNCTION main()
-  DEFINE d TM_customers
-  DEFINE opts sDAdyn.T_SingleTableDAOptions =
+  DEFINE arr DYNAMIC ARRAY OF TM_customer
+  DEFINE opts T_SingleTableDAOptions =
     (sqlAll: "SELECT * FROM CUSTOMER AS cust",
       browseForm: "customers",
       --browseForm: "customers_singlerow",
@@ -176,14 +153,10 @@ FUNCTION main()
       hasFilter: TRUE -- ,filterInitially:TRUE
       , addToolBar: TRUE)
   CALL utils.dbconnect()
-  --we pass the reflect value of the TM_customers variable
-  --the browse array function calls various methods of the
-  --TM_customers while being active
-  LET opts.delegateDA = reflect.Value.valueOf(d)
   --we must pass the reflect value of the array,
   --the browseArray function fills the array with SQL data
   --and calls implemented methods of the TM_customer type
   --for the current RECORD in the array
-  LET opts.arrayValue = reflect.Value.valueOf(d.c_arr)
+  LET opts.arrayValue = reflect.Value.valueOf(arr)
   CALL sDAdyn.browseArray(opts)
 END FUNCTION

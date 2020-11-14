@@ -31,6 +31,12 @@ sDAdyn.42m: utils.42m sql2array.42m
 
 customers.42m: sDAdyn.42m utils.42m
 
+ccustomers.42m: utils.42m
+
+ccustomers: ccustomers.42m
+	fglrun $@
+
+
 orders.42m: sDAdyn.42m utils.42m
 
 orders: orders.42m orders.42f

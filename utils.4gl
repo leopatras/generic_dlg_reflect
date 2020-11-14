@@ -5,6 +5,7 @@ IMPORT reflect
 IMPORT util
 IMPORT os
 IMPORT FGL aui_const
+IMPORT FGL fgldialog
 PUBLIC CONSTANT C_AFTER_FIELD = "AFTER FIELD"
 PUBLIC CONSTANT C_BEFORE_FIELD = "BEFORE FIELD"
 PUBLIC CONSTANT C_ON_ACTION = "ON ACTION"
@@ -14,6 +15,9 @@ PUBLIC CONSTANT C_AFTER_ROW = "AFTER ROW"
 PUBLIC CONSTANT TAG_PhantomColumn = "PhantomColumn"
 PUBLIC CONSTANT TAG_RecordView = "RecordView"
 PUBLIC CONSTANT TAG_Link = "Link"
+
+PUBLIC CONSTANT OA_delete = "delete"
+PUBLIC CONSTANT OA_update = "update"
 
 PUBLIC CONSTANT C_RECORD = "RECORD"
 PUBLIC CONSTANT C_ARRAY = "ARRAY"
@@ -37,6 +41,36 @@ PUBLIC TYPE T_Action RECORD
 END RECORD
 
 PUBLIC TYPE T_ACTION_ARR DYNAMIC ARRAY OF T_Action
+
+PUBLIC TYPE T_SingleTableDAOptions RECORD
+  delegateDA reflect.Value,
+  arrayValue reflect.Value,
+  browseForm STRING,
+  browseRecord STRING,
+  browseTitle STRING,
+  filterForm STRING,
+  filterTitle STRING,
+  hasFilter BOOLEAN,
+  autoPhantom BOOLEAN,
+  inputForm STRING,
+  inputTitle STRING,
+  filterInitially BOOLEAN,
+  sqlAll STRING,
+  sqlFilterBase STRING, --if not set, this defaults to sqlAll
+  sqlFetchByPosition BOOLEAN, --if not set, defaults to fetch by column name
+  hasAppend BOOLEAN,
+  hasUpdate BOOLEAN,
+  hasDelete BOOLEAN,
+  addClickableImages BOOLEAN,
+  addToolBar BOOLEAN,
+  qualifiedNames
+      BOOLEAN --if set field names are referenced by "tableName.columnName",
+    --and hence also the names in the ARRAY
+    --this means RECORDs *must* have sub RECORD names *matching* the table names/aliases
+    --, multiRowSelection BOOLEAN
+    ,
+  tabname STRING --optional tablename
+END RECORD
 
 DEFINE mShowStack BOOLEAN
 DEFINE mWindows ARRAY[10] OF BOOLEAN
@@ -912,7 +946,7 @@ FUNCTION getSchemaVal(
         dt MOD 256, tabname, colname)
   END CASE
   LET schVal.isNULL = dt / 256 == 1
-  RETURN schVal.*
+  RETURN schVal
 END FUNCTION
 
 TYPE T_SCH_DICT DICTIONARY OF T_schemaVal
@@ -963,4 +997,86 @@ END FUNCTION
 FUNCTION getColumnForTableByPos(tabname STRING, pos INT) RETURNS STRING
   CALL readSchema(C_STORES_SCH)
   RETURN m_colsByPos[tabname][pos]
+END FUNCTION
+
+FUNCTION filterNoRecords(filterActive BOOLEAN) RETURNS BOOLEAN
+  DEFINE ans STRING
+      CALL fgl_winButton(
+	title: "No records found",
+	"Please enter other criteria or show all data.",
+	ans: "Input other filter criteria",
+	items: "Input other filter criteria|Show all data",
+	icon: "attention",
+	dang: 0)
+	RETURNING ans
+      IF NOT ans.equals("Input other filter criteria") THEN
+	LET filterActive = FALSE
+      END IF
+  RETURN filterActive
+END FUNCTION
+
+FUNCTION reallyDeleteRecords() RETURNS BOOLEAN
+  VAR ans STRING
+  LET ans=fgldialog.fgl_winQuestion(
+        title: "Attention",
+        message: "Do you really want to delete this RECORD?",
+        ans: "yes",
+        items: "yes|no",
+        icon: "quest",
+        dang: 0)
+  RETURN ans=="yes"
+END FUNCTION
+
+FUNCTION checkToolBar(options T_SingleTableDAOptions)
+  DEFINE actions T_ACTION_ARR
+  DEFINE len INT
+  IF NOT options.addToolBar THEN
+    RETURN
+  END IF
+  VAR form = getCurrentForm()
+  VAR tabNode = getTableByScreenRecord(form, options.browseRecord)
+  IF tabNode IS NULL THEN
+    --add navigation toolbar.. not really needed for tables
+    LET len = actions.getLength() + 1
+    LET actions[len].name = "firstrow"
+    LET len = actions.getLength() + 1
+    LET actions[len].name = "prevrow"
+    LET len = actions.getLength() + 1
+    LET actions[len].name = "nextrow"
+    LET len = actions.getLength() + 1
+    LET actions[len].name = "lastrow"
+    CALL addActionsToFormToolBar(actions)
+    CALL actions.clear()
+  END IF
+  IF options.hasUpdate THEN
+    LET len = actions.getLength() + 1
+    LET actions[len].name = OA_update
+    LET actions[len].image = "fa-edit"
+  END IF
+  IF options.hasDelete THEN
+    LET len = actions.getLength() + 1
+    LET actions[len].name = OA_delete
+    LET actions[len].image = "fa-trash-o"
+  END IF
+  IF options.hasAppend THEN
+    LET len = actions.getLength() + 1
+    LET actions[len].name = "append"
+    LET actions[len].image = "fa-plus"
+  END IF
+  DISPLAY ">>>>actions:", util.JSON.stringify(actions)
+  IF actions.getLength() > 0 THEN
+    CALL addActionsToFormToolBar(actions)
+    CALL actions.clear()
+  END IF
+  IF options.hasFilter THEN
+    LET len = actions.getLength() + 1
+    LET actions[len].name = "filter"
+    LET actions[len].image = "fa-filter"
+    LET actions[len].text = "Filter"
+    LET len = actions.getLength() + 1
+    LET actions[len].name = "clear_filter"
+    LET actions[len].image = "clear_filter.svg"
+    LET actions[len].text = "Clear F."
+    CALL addActionsToFormToolBar(actions)
+  END IF
 END FUNCTION
