@@ -203,8 +203,9 @@ END FUNCTION
 PRIVATE FUNCTION (self TM_BrowseCust) getFilter() RETURNS STRING
   DEFINE where STRING
   DEFINE winId INT
-  IF self.getFilterForm() IS NOT NULL THEN
-    LET winId = utils.openDynamicWindow(self.o.filterForm)
+  VAR filterForm=self.getFilterForm()
+  IF filterForm IS NOT NULL THEN
+    LET winId = utils.openDynamicWindow(filterForm)
     IF self.o.filterTitle IS NULL THEN
       LET self.o.filterTitle =
         SFMT("%1: Input filter criteria", utils.getFormTitle())
@@ -237,6 +238,7 @@ FUNCTION main()
   DEFINE arr T_customers
   DEFINE opts T_SingleTableDAOptions =
     (browseForm: "customers",
+     inputForm: "customers_singlerow",
       --filterForm: "customers_singlerow",
       hasUpdate: TRUE,
       hasAppend: FALSE,
