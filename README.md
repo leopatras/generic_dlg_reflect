@@ -22,5 +22,4 @@ The abstraction level in the code using the new dialog type is higher, the re us
 | citems.4gl    |              200 |
 | items.4gl     |               50 |
 |               |                  |
-|               |                  |
 | sDADyn.4gl    |          ca 1000 |
