@@ -8,3 +8,16 @@ how one could use dynamic dialogs, reflect and RECORD methods to build generic d
 `ccustomers.4gl,corders.4gl` and `citems.4gl` show (almost) the same feature set implemented using classic `DISPLAY ARRAY/INPUT/CONSTRUCT` combinations.
 
 The abstraction level in the code using the new dialog type is higher, the re usage level is higer and less code lines are needed in the application code.
+
+| File          | Number Of Lines  |
+| ------------- | ----------------:|
+| ccustomers.4gl|              228 |
+| customers.4gl |              107 |
+|               |                  |
+| corders.4gl   |              214 |
+| orders.4gl    |               80 |
+|               |                  |
+| citems.4gl    |              200 |
+| items.4gl     |               50 |
+|               |                  |
+| sDADyn.4gl    |          ca 1000 |
