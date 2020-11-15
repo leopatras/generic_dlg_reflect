@@ -14,10 +14,13 @@ The abstraction level in the code using the new dialog type is higher, the re us
 | ccustomers.4gl|              228 |
 | customers.4gl |              107 |
 |               |                  |
+|               |                  |
 | corders.4gl   |              214 |
 | orders.4gl    |               80 |
 |               |                  |
+|               |                  |
 | citems.4gl    |              200 |
 | items.4gl     |               50 |
+|               |                  |
 |               |                  |
 | sDADyn.4gl    |          ca 1000 |
