@@ -1,0 +1,21 @@
+SCHEMA stores
+TABLES items
+LAYOUT
+TABLE(HEIGHT=10 LINES)
+{
+  item_num   order_num  stock_num  manu_code  quantity  total_price 
+[ item_num | order_num |stock_num |manu_code| quantity |total_price |upd|del]
+}
+END
+ATTRIBUTES
+item_num=items.item_num;
+order_num=items.order_num;
+stock_num=items.stock_num;
+manu_code=items.manu_code;
+quantity=items.quantity;
+total_price=items.total_price;
+IMAGE upd=FORMONLY.upd,ACTION=update;
+IMAGE del=FORMONLY.del,ACTION=delete;
+
+INSTRUCTIONS
+SCREEN RECORD scr(items.*,FORMONLY.upd,FORMONLY.del)
