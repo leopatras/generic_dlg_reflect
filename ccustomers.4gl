@@ -117,7 +117,7 @@ FUNCTION (self TM_BrowseCust) browseArray(customers T_customers)
         CALL self.inputRow(customers[arr_curr()].*, TRUE)
           RETURNING customers[arr_curr()].*
       ON APPEND
-        CALL self.inputRow(customers[arr_curr()].*, TRUE)
+        CALL self.inputRow(customers[arr_curr()].*, FALSE)
           RETURNING customers[arr_curr()].*
       ON DELETE
         IF utils.reallyDeleteRecords() THEN
@@ -157,7 +157,12 @@ PRIVATE FUNCTION (self TM_BrowseCust)
     ON ACTION custom_action
       MESSAGE "custom_action"
   END INPUT
-  CALL updateCustomer(customer.*) RETURNING customer.*
+  IF update THEN
+    CALL updateCustomer(customer.*) RETURNING customer.*
+  ELSE
+    INSERT INTO customer VALUES customer.*
+    LET customer.customer_num = sqlca.sqlerrd[2]
+  END IF
   CALL utils.closeDynamicWindow(winId)
   RETURN customer
 END FUNCTION
@@ -203,7 +208,7 @@ END FUNCTION
 PRIVATE FUNCTION (self TM_BrowseCust) getFilter() RETURNS STRING
   DEFINE where STRING
   DEFINE winId INT
-  VAR filterForm=self.getFilterForm()
+  VAR filterForm = self.getFilterForm()
   IF filterForm IS NOT NULL THEN
     LET winId = utils.openDynamicWindow(filterForm)
     IF self.o.filterTitle IS NULL THEN
@@ -238,13 +243,13 @@ FUNCTION main()
   DEFINE arr T_customers
   DEFINE opts T_SingleTableDAOptions =
     (browseForm: "customers",
-     inputForm: "customers_singlerow",
+      inputForm: "customers_singlerow",
       --filterForm: "customers_singlerow",
       hasUpdate: TRUE,
-      hasAppend: FALSE,
+      hasAppend: TRUE,
       hasDelete: TRUE,
       hasFilter: TRUE,
-      filterInitially: FALSE,
+      filterInitially: TRUE,
       addToolBar: TRUE)
   CALL utils.dbconnect()
   CALL browseArray(opts, arr)

@@ -1,0 +1,11 @@
+#!/bin/bash
+realpath() {
+    [[ $1 = /* ]] && echo "$1" || echo "$PWD/${1#./}"
+}
+
+SCRIPT_NAME=`realpath $0`
+TOOLSDIR=`dirname $SCRIPT_NAME` 
+#we recompile everything always: hence avoid version clashes
+unset FGLPROFILE
+make -C $TOOLSDIR clean countlines.42m > /dev/null
+exec fglrun $TOOLSDIR/countlines.42m "$@" 
