@@ -23,10 +23,8 @@ CONSTANT SHOW_ITEMS = "show_items"
 FUNCTION (self TM_orders) InitDA(sdi I_SingleTableDA, d ui.Dialog)
   IF self.browseOrders THEN
     CALL sdi.addOnActionRowBound(d, SHOW_CUSTOMER)
-    CALL d.setActionText(SHOW_CUSTOMER, "Show Customer")
   END IF
   CALL sdi.addOnActionRowBound(d, SHOW_ITEMS)
-  CALL d.setActionText(SHOW_ITEMS, "Show Items")
 END FUNCTION
 
 FUNCTION (self TM_orders) OnActionInDA(actionName STRING, row INT)
@@ -70,7 +68,8 @@ FUNCTION showOrders(
   lname LIKE customer.lname)
   DEFINE mo TM_orders
   DEFINE opts T_SingleTableDAOptions =
-    (browseForm: "orders", browseRecord: "scr")
+    (browseForm: "orders", browseRecord: "scr",
+     addToolBar: TRUE)
   --we pass the reflect value of the TM_orders variable
   --the browse array function calls various methods of the
   --TM_orders type while being active
@@ -83,7 +82,7 @@ FUNCTION showOrders(
     LET opts.hasFilter = TRUE
     LET opts.hasUpdate = TRUE
     LET opts.hasDelete = TRUE
-    LET opts.autoPhantom = TRUE
+    --LET opts.autoPhantom = TRUE
     LET mo.browseOrders = TRUE
   ELSE
     LET opts.sqlAll =

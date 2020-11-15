@@ -36,6 +36,20 @@ ccustomers.42m: utils.42m
 ccustomers: ccustomers.42m
 	fglrun $@
 
+corders.42m: utils.42m
+
+corders: corders.42m
+	fglrun $@
+
+citems.42m: utils.42m items.42f
+
+citems: citems.42m
+	fglrun $@
+
+items.42m: utils.42m
+
+items: items.42m
+	fglrun $@
 
 orders.42m: sDAdyn.42m utils.42m
 

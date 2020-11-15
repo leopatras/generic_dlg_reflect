@@ -1,54 +1,62 @@
 #-- demonstrates classic DISPLAY ARRAY/INPUT/CONSTRUCT statements
-#-- for the customers table.
-#-- The variable part constraints (AFTER FIELD, ON ACTION etc) are the same
-#-- as in customers.4gl, but we need more code
+#-- for the items table.
+#-- its basically a copy/paste/replace of the corders module
 &include "myassert.inc"
 IMPORT util
 IMPORT FGL utils
 IMPORT FGL fgldialog
-IMPORT FGL corders
 IMPORT FGL utils_customer
-IMPORT FGL cols_customer -- columns of customer
 SCHEMA stores
-PUBLIC TYPE T_customer RECORD LIKE customer.*
-TYPE T_customers DYNAMIC ARRAY OF T_customer
+PUBLIC TYPE T_item RECORD 
+   it RECORD LIKE items.*,
+   upd STRING,
+   del STRING
+END RECORD
+TYPE T_items DYNAMIC ARRAY OF T_item
 
-FUNCTION fetchCustomers(customers T_customers, where STRING)
-  DEFINE customer T_customer
+DEFINE m_order_num INT
+
+FUNCTION fetchItems(items T_items, where STRING)
+  DEFINE it RECORD LIKE items.*
   DEFINE n INT
-  CALL customers.clear()
-  VAR sql = SFMT("SELECT * FROM customer WHERE %1", where)
+  DEFINE rwhere STRING
+  CALL items.clear()
+  LET rwhere = IIF(m_order_num >= 0, SFMT("order_num=%1", m_order_num), where)
+  VAR sql = SFMT("SELECT * FROM items WHERE %1", rwhere)
   PREPARE s1 FROM sql
   DECLARE cu1 CURSOR FOR s1
-  FOREACH cu1 INTO customer.*
+  FOREACH cu1 INTO it.*
     LET n = n + 1
-    LET customers[n].* = customer.*
+    LET items[n].it.* = it.*
+    LET items[n].upd = "fa-edit"
+    LET items[n].del = "fa-trash-o"
   END FOREACH
 END FUNCTION
 
-FUNCTION updateCustomer(customer T_customer) RETURNS T_customer
-  DEFINE num LIKE customer.customer_num = customer.customer_num
+
+FUNCTION updateItems(it RECORD LIKE items.*) RETURNS RECORD LIKE items.*
+  DEFINE num LIKE items.item_num = it.item_num
   IF NOT int_flag THEN
-    UPDATE customer SET customer.* = customer.* WHERE @customer_num = $num
+    UPDATE items SET items.* = it.* WHERE @item_num = $num AND @order_num = it.order_num
   ELSE
     --re read to repair changes to the record, this avoids a save var
-    SELECT * INTO customer.* FROM customer WHERE @customer_num == $num
+    SELECT * INTO it.* FROM items WHERE @item_num == $num AND @order_num = it.order_num
   END IF
-  RETURN customer
+  RETURN it
 END FUNCTION
 
-FUNCTION browseArray(options T_SingleTableDAOptions, customers T_customers)
-  DEFINE ba TM_BrowseCust
+FUNCTION browseArray(options T_SingleTableDAOptions, items T_items)
+  DEFINE ba TM_BrowseOrd
   LET ba.o = options
-  CALL ba.browseArray(customers)
+  CALL ba.browseArray(items)
 END FUNCTION
 
-TYPE TM_BrowseCust RECORD
+TYPE TM_BrowseOrd RECORD
   o utils.T_SingleTableDAOptions,
   browseFormTextOrig STRING
 END RECORD
 
-FUNCTION (self TM_BrowseCust) browseArray(customers T_customers)
+FUNCTION (self TM_BrowseOrd) browseArray(items T_items)
   DEFINE filterActive BOOLEAN
   DEFINE where STRING
   VAR winId = utils.openDynamicWindow(self.o.browseForm)
@@ -89,15 +97,15 @@ FUNCTION (self TM_BrowseCust) browseArray(customers T_customers)
     END IF
 
     IF where IS NOT NULL THEN
-      CALL fetchCustomers(customers, where)
-      MESSAGE SFMT("Found %1 records", customers.getLength())
+      CALL fetchItems(items, where)
+      MESSAGE SFMT("Found %1 records", items.getLength())
     END IF
-    IF filterActive AND customers.getLength() == 0 THEN
+    IF filterActive AND items.getLength() == 0 THEN
       LET filterActive = utils.filterNoRecords(filterActive)
       CONTINUE WHILE
     END IF
     CALL self.setBrowseTitle(filterActive)
-    DISPLAY ARRAY customers TO scr.* ATTRIBUTE(UNBUFFERED, ACCEPT = FALSE)
+    DISPLAY ARRAY items TO scr.* ATTRIBUTE(UNBUFFERED, ACCEPT = FALSE)
       BEFORE DISPLAY
         CALL DIALOG.setActionText("cancel", "Exit")
         CALL DIALOG.setActionActive("update", self.o.hasUpdate)
@@ -108,21 +116,22 @@ FUNCTION (self TM_BrowseCust) browseArray(customers T_customers)
         CALL DIALOG.setActionHidden("delete", NOT self.o.hasDelete)
         CALL DIALOG.setActionActive("filter", self.o.hasFilter)
         CALL DIALOG.setActionHidden("filter", NOT self.o.hasFilter)
-      BEFORE ROW
-        CALL self.checkOrders(DIALOG, customers[arr_curr()].customer_num)
+        CALL DIALOG.setActionActive("clear_filter", self.o.hasFilter)
+        CALL DIALOG.setActionHidden("clear_filter", NOT self.o.hasFilter)
       ON ACTION cancel
         LET done = TRUE
         EXIT DISPLAY
       ON UPDATE
-        CALL self.inputRow(customers[arr_curr()].*, TRUE)
-          RETURNING customers[arr_curr()].*
+        CALL self.inputRow(items[arr_curr()].*, TRUE)
+          RETURNING items[arr_curr()].*
       ON APPEND
-        CALL self.inputRow(customers[arr_curr()].*, FALSE)
-          RETURNING customers[arr_curr()].*
+        CALL self.inputRow(items[arr_curr()].*, FALSE)
+          RETURNING items[arr_curr()].*
       ON DELETE
         IF utils.reallyDeleteRecords() THEN
-          DELETE FROM customer
-            WHERE @customer_num = $customers[arr_curr()].customer_num
+          VAR num = items[arr_curr()].it.item_num
+          VAR order_num = items[arr_curr()].it.order_num
+          DELETE FROM items WHERE @item_num = $num AND @order_num = $order_num
         END IF
       ON ACTION filter
         LET prevWhere = IIF(filterActive, where, NULL)
@@ -132,42 +141,27 @@ FUNCTION (self TM_BrowseCust) browseArray(customers T_customers)
         LET prevWhere = NULL
         LET filterActive = FALSE
         EXIT DISPLAY
-      ON ACTION show_orders ATTRIBUTE(ROWBOUND)
-        VAR curr = customers[arr_curr()]
-        CALL corders.showOrders(curr.customer_num, curr.fname, curr.lname)
     END DISPLAY
   END WHILE
   CALL utils.closeDynamicWindow(winId)
 END FUNCTION
 
-PRIVATE FUNCTION (self TM_BrowseCust)
+PRIVATE FUNCTION (self TM_BrowseOrd)
   inputRow(
-  customer T_customer, update BOOLEAN)
-  RETURNS T_customer
+  item T_item, update BOOLEAN)
+  RETURNS T_item
   UNUSED(self)
-  VAR winId = openDynamicWindow("customers_singlerow")
-  CALL fgl_settitle(SFMT("Customer: %1", IIF(update, "Update", "New")))
+  --VAR winId = openDynamicWindow("customers_singlerow")
+  --CALL fgl_settitle(SFMT("Order: %1", IIF(update, "Update", "New")))
   LET int_flag = FALSE
-  INPUT BY NAME customer.* ATTRIBUTES(UNBUFFERED, WITHOUT DEFAULTS = update)
-    AFTER FIELD zipcode --the variable part
-      IF length(customer.zipcode) <> 5 THEN
-        ERROR "Zipcode must have 5 digits"
-        NEXT FIELD CURRENT
-      END IF
-    ON ACTION custom_action
-      MESSAGE "custom_action"
-  END INPUT
-  IF update THEN
-    CALL updateCustomer(customer.*) RETURNING customer.*
-  ELSE
-    INSERT INTO customer VALUES customer.*
-    LET customer.customer_num = sqlca.sqlerrd[2]
-  END IF
-  CALL utils.closeDynamicWindow(winId)
-  RETURN customer
+  INPUT BY NAME item.it.* ATTRIBUTES(UNBUFFERED, WITHOUT DEFAULTS = update)
+  MYASSERT(update==TRUE)
+  CALL updateItems(item.it.*) RETURNING item.it.*
+  --CALL utils.closeDynamicWindow(winId)
+  RETURN item
 END FUNCTION
 
-PRIVATE FUNCTION (self TM_BrowseCust) setBrowseTitle(filterActive BOOLEAN)
+PRIVATE FUNCTION (self TM_BrowseOrd) setBrowseTitle(filterActive BOOLEAN)
   IF NOT self.o.hasFilter THEN
     CALL fgl_settitle(self.o.browseTitle)
   ELSE
@@ -176,36 +170,14 @@ PRIVATE FUNCTION (self TM_BrowseCust) setBrowseTitle(filterActive BOOLEAN)
   END IF
 END FUNCTION
 
-CONSTANT SHOW_ORDERS = "show_orders"
-
-PRIVATE FUNCTION (self TM_BrowseCust)
-  checkOrders(
-  d ui.Dialog, num LIKE customer.customer_num)
-  VAR numOrders = count_orders(num)
-  VAR active = numOrders > 0
-  --DISPLAY "numOrders:", numOrders, ",active:", active
-  CALL d.setActionActive(SHOW_ORDERS, active)
-  CASE numOrders
-    WHEN 0
-      CALL d.setActionText(SHOW_ORDERS, "No Orders")
-    WHEN 1
-      CALL d.setActionText(SHOW_ORDERS, "Show Order")
-    OTHERWISE
-      CALL d.setActionText(SHOW_ORDERS, SFMT("Show %1 Orders", numOrders))
-  END CASE
-  IF self.o.hasDelete THEN
-    CALL d.setActionActive("delete", numOrders == 0)
-  END IF
-END FUNCTION
-
-PRIVATE FUNCTION (self TM_BrowseCust) getFilterForm() RETURNS STRING
+PRIVATE FUNCTION (self TM_BrowseOrd) getFilterForm() RETURNS STRING
   DEFINE frm STRING
   LET frm =
     IIF(self.o.filterForm IS NOT NULL, self.o.filterForm, self.o.inputForm)
   RETURN frm
 END FUNCTION
 
-PRIVATE FUNCTION (self TM_BrowseCust) getFilter() RETURNS STRING
+PRIVATE FUNCTION (self TM_BrowseOrd) getFilter() RETURNS STRING
   DEFINE where STRING
   DEFINE winId INT
   VAR filterForm = self.getFilterForm()
@@ -225,7 +197,7 @@ PRIVATE FUNCTION (self TM_BrowseCust) getFilter() RETURNS STRING
   MESSAGE "Input filter criteria"
   LET int_flag = FALSE
   -- restore the filter from the previous run is *not* easy possible
-  CONSTRUCT BY NAME where ON customer.*
+  CONSTRUCT BY NAME where ON items.*
   IF int_flag THEN
     LET where = ""
   END IF
@@ -233,24 +205,27 @@ PRIVATE FUNCTION (self TM_BrowseCust) getFilter() RETURNS STRING
   RETURN where
 END FUNCTION
 
-PRIVATE FUNCTION count_orders(num LIKE customer.customer_num) RETURNS INT
-  DEFINE n INT
-  SELECT COUNT(*) INTO n FROM orders WHERE @customer_num == num
-  RETURN n
+FUNCTION showItems(order_num LIKE orders.order_num, custName STRING)
+  DEFINE arr T_items
+  LET m_order_num = order_num
+
+  VAR opts T_SingleTableDAOptions =
+    (browseForm: "items",
+      --inputForm: "customers_singlerow",
+      --filterForm: "customers_singlerow",
+      hasUpdate: TRUE,
+      addToolBar: TRUE)
+  IF m_order_num >= 0 THEN
+    LET opts.browseTitle =
+      SFMT("Items of Order %1,Customer: %2", order_num, custName)
+  ELSE
+    LET opts.hasDelete = TRUE
+    LET opts.hasFilter = TRUE
+  END IF
+  CALL utils.dbconnect()
+  CALL browseArray(opts, arr)
 END FUNCTION
 
 FUNCTION main()
-  DEFINE arr T_customers
-  DEFINE opts T_SingleTableDAOptions =
-    (browseForm: "customers",
-      inputForm: "customers_singlerow",
-      --filterForm: "customers_singlerow",
-      hasUpdate: TRUE,
-      hasAppend: TRUE,
-      hasDelete: TRUE,
-      hasFilter: TRUE,
-      filterInitially: TRUE,
-      addToolBar: TRUE)
-  CALL utils.dbconnect()
-  CALL browseArray(opts, arr)
+  CALL showItems(-1, "")
 END FUNCTION
