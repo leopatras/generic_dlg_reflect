@@ -9,6 +9,8 @@ how one could use dynamic dialogs, reflect and RECORD methods to build generic d
 
 The abstraction level in the code using the new dialog type is higher, the re usage level is higer and less code lines are needed in the application code.
 
+Of course the code of the library has a cost, currently around 1 kLOC.
+
 | File          | Number Of Lines  |
 | ------------- | ----------------:|
 | ccustomers.4gl|              228 |
