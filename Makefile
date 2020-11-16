@@ -16,7 +16,10 @@ all: stores.sch customers.42f cols_customer.4gl $(FORMS) utils.42m $(MODULES)
 $(FORMS) $(MODULES): stores.sch cols_customer.4gl
 
 run: all stores.sch $(MODULES) $(FORMS)
-	fglrun customers
+	fglrun stores.42m
+
+crun: all stores.sch $(MODULES) $(FORMS)
+	fglrun cstores.42m
 
 test.42m: utils.42m
 
@@ -30,6 +33,9 @@ aui_const.4gl:
 sDAdyn.42m: utils.42m sql2array.42m
 
 customers.42m: sDAdyn.42m utils.42m
+
+customers: customers.42m
+	fglrun $@
 
 ccustomers.42m: utils.42m
 

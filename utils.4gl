@@ -1001,30 +1001,46 @@ END FUNCTION
 
 FUNCTION filterNoRecords(filterActive BOOLEAN) RETURNS BOOLEAN
   DEFINE ans STRING
-      CALL fgl_winButton(
-	title: "No records found",
-	"Please enter other criteria or show all data.",
-	ans: "Input other filter criteria",
-	items: "Input other filter criteria|Show all data",
-	icon: "attention",
-	dang: 0)
-	RETURNING ans
-      IF NOT ans.equals("Input other filter criteria") THEN
-	LET filterActive = FALSE
-      END IF
+  CALL fgl_winButton(
+    title: "No records found",
+    "Please enter other criteria or show all data.",
+    ans: "Input other filter criteria",
+    items: "Input other filter criteria|Show all data",
+    icon: "attention",
+    dang: 0)
+    RETURNING ans
+  IF NOT ans.equals("Input other filter criteria") THEN
+    LET filterActive = FALSE
+  END IF
   RETURN filterActive
 END FUNCTION
 
 FUNCTION reallyDeleteRecords() RETURNS BOOLEAN
   VAR ans STRING
-  LET ans=fgldialog.fgl_winQuestion(
-        title: "Attention",
-        message: "Do you really want to delete this RECORD?",
-        ans: "yes",
-        items: "yes|no",
-        icon: "quest",
-        dang: 0)
-  RETURN ans=="yes"
+  LET ans =
+    fgldialog.fgl_winQuestion(
+      title: "Attention",
+      message: "Do you really want to delete this RECORD?",
+      ans: "yes",
+      items: "yes|no",
+      icon: "quest",
+      dang: 0)
+  RETURN ans == "yes"
+END FUNCTION
+
+PUBLIC FUNCTION checkCommonDA_Actions(
+  d ui.Dialog, options T_SingleTableDAOptions)
+  CALL d.setActionText("cancel", "Exit")
+  CALL d.setActionActive("update", options.hasUpdate)
+  CALL d.setActionHidden("update", NOT options.hasUpdate)
+  CALL d.setActionActive("append", options.hasAppend)
+  CALL d.setActionHidden("append", NOT options.hasAppend)
+  CALL d.setActionActive("delete", options.hasDelete)
+  CALL d.setActionHidden("delete", NOT options.hasDelete)
+  CALL d.setActionActive("filter", options.hasFilter)
+  CALL d.setActionHidden("filter", NOT options.hasFilter)
+  CALL d.setActionActive("clear_filter", options.hasFilter)
+  CALL d.setActionHidden("clear_filter", NOT options.hasFilter)
 END FUNCTION
 
 FUNCTION checkToolBar(options T_SingleTableDAOptions)

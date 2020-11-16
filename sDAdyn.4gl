@@ -293,7 +293,7 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
 
     WHILE TRUE -- event loop for dialog d
       LET event = d.nextEvent()
-      DISPLAY "here:", event
+      --DISPLAY "here:", event
       CASE
         WHEN event = "ON ACTION Exit"
           LET done = TRUE

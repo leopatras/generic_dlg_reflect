@@ -104,17 +104,7 @@ FUNCTION (self TM_BrowseOrd) browseArray(orders T_orders)
     CALL self.setBrowseTitle(filterActive)
     DISPLAY ARRAY orders TO scr.* ATTRIBUTE(UNBUFFERED, ACCEPT = FALSE)
       BEFORE DISPLAY
-        CALL DIALOG.setActionText("cancel", "Exit")
-        CALL DIALOG.setActionActive("update", self.o.hasUpdate)
-        CALL DIALOG.setActionHidden("update", NOT self.o.hasUpdate)
-        CALL DIALOG.setActionActive("append", self.o.hasAppend)
-        CALL DIALOG.setActionHidden("append", NOT self.o.hasAppend)
-        CALL DIALOG.setActionActive("delete", self.o.hasDelete)
-        CALL DIALOG.setActionHidden("delete", NOT self.o.hasDelete)
-        CALL DIALOG.setActionActive("filter", self.o.hasFilter)
-        CALL DIALOG.setActionHidden("filter", NOT self.o.hasFilter)
-        CALL DIALOG.setActionActive("clear_filter", self.o.hasFilter)
-        CALL DIALOG.setActionHidden("clear_filter", NOT self.o.hasFilter)
+        CALL utils.checkCommonDA_Actions(DIALOG,self.o)
         IF m_cust_num>=0 THEN
           CALL DIALOG.setActionHidden("show_customer", 1)
         END IF

@@ -99,15 +99,7 @@ FUNCTION (self TM_BrowseCust) browseArray(customers T_customers)
     CALL self.setBrowseTitle(filterActive)
     DISPLAY ARRAY customers TO scr.* ATTRIBUTE(UNBUFFERED, ACCEPT = FALSE)
       BEFORE DISPLAY
-        CALL DIALOG.setActionText("cancel", "Exit")
-        CALL DIALOG.setActionActive("update", self.o.hasUpdate)
-        CALL DIALOG.setActionHidden("update", NOT self.o.hasUpdate)
-        CALL DIALOG.setActionActive("append", self.o.hasAppend)
-        CALL DIALOG.setActionHidden("append", NOT self.o.hasAppend)
-        CALL DIALOG.setActionActive("delete", self.o.hasDelete)
-        CALL DIALOG.setActionHidden("delete", NOT self.o.hasDelete)
-        CALL DIALOG.setActionActive("filter", self.o.hasFilter)
-        CALL DIALOG.setActionHidden("filter", NOT self.o.hasFilter)
+        CALL utils.checkCommonDA_Actions(DIALOG,self.o)
       BEFORE ROW
         CALL self.checkOrders(DIALOG, customers[arr_curr()].customer_num)
       ON ACTION cancel
@@ -249,7 +241,7 @@ FUNCTION main()
       hasAppend: TRUE,
       hasDelete: TRUE,
       hasFilter: TRUE,
-      filterInitially: TRUE,
+      filterInitially: FALSE,
       addToolBar: TRUE)
   CALL utils.dbconnect()
   CALL browseArray(opts, arr)
