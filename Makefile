@@ -77,7 +77,7 @@ clean::
 	$(MAKE) -C stores clean
 	$(MAKE) -C tools clean
 	$(RM) -f stores.dbs stores.sch
-	$(RM) -f *.42? cols_customer.4gl aui_const.4gl
+	$(RM) -f *.42? cols_customer.4gl aui_const.4gl *.fgldeb
 
 echo:
 	@echo "ALLMODULES:$(ALLMODULES)"
