@@ -14,7 +14,7 @@ FUNCTION fetch_customers(customers T_customers)
 END FUNCTION
 
 FUNCTION check_order_count(
-  d ui.Dialog, num LIKE customer.customer_num, action STRING)
+    d ui.Dialog, num LIKE customer.customer_num, action STRING)
   DEFINE numOrders INT
   --DEFINE custarr T_customers
   --SELECT COUNT(*) INTO numOrders FROM orders WHERE @orders.customer_num = $custarr[5].customer_num

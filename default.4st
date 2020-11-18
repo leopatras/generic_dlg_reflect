@@ -4,6 +4,9 @@
      <StyleAttribute name="actionPanelButtonTextAlign" value="left" />
      <StyleAttribute name="position" value="center2" />
   </Style>
+  <Style name="Window.main">
+     <StyleAttribute name="position" value="center" />
+  </Style>
   <Style name="Table">
      <StyleAttribute name="headerAlignment" value="auto" />
   </Style>

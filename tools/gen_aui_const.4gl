@@ -36,7 +36,7 @@ PRIVATE FUNCTION openAUIxa()
   LET doc = om.DomDocument.createFromXmlFile(getAUIxa())
   IF doc IS NULL THEN
     CALL myerrAndStackTrace(
-      SFMT("can't read aui definition file %1", getAUIxa()))
+        SFMT("can't read aui definition file %1", getAUIxa()))
   END IF
   LET m_auiRoot = doc.getDocumentElement()
 END FUNCTION
@@ -54,12 +54,12 @@ PRIVATE FUNCTION get_child_tags(tagName, arr)
 END FUNCTION
 
 PRIVATE FUNCTION get_name_list(
-  root om.DomNode,
-  xpath STRING,
-  arr T_STRING_ARR,
-  omitVolatile BOOLEAN,
-  clearArray BOOLEAN)
-  RETURNS INT
+    root om.DomNode,
+    xpath STRING,
+    arr T_STRING_ARR,
+    omitVolatile BOOLEAN,
+    clearArray BOOLEAN)
+    RETURNS INT
   DEFINE node om.DomNode
   DEFINE nodelist om.NodeList
   DEFINE i, len, arrcount INTEGER
@@ -111,23 +111,23 @@ END FUNCTION
 PRIVATE FUNCTION get_all_aui_attrs(arr) RETURNS INT
   DEFINE arr DYNAMIC ARRAY OF STRING
   RETURN get_name_list(
-    m_auiRoot, "/AuiDef/AuiAttrDefList/AuiAttrDef", arr, FALSE, TRUE)
+      m_auiRoot, "/AuiDef/AuiAttrDefList/AuiAttrDef", arr, FALSE, TRUE)
 END FUNCTION
 
 PRIVATE FUNCTION get_volatile_aui_attrs(arr)
   DEFINE arr DYNAMIC ARRAY OF STRING
   RETURN get_name_list(
-    m_auiRoot,
-    "/AuiDef/AuiAttrDefList/AuiAttrDef[@volatile=\"1\"]",
-    arr,
-    FALSE,
-    TRUE)
+      m_auiRoot,
+      "/AuiDef/AuiAttrDefList/AuiAttrDef[@volatile=\"1\"]",
+      arr,
+      FALSE,
+      TRUE)
 END FUNCTION
 
 PRIVATE FUNCTION get_volatile_aui_tags(arr)
   DEFINE arr DYNAMIC ARRAY OF STRING
   RETURN get_name_list(
-    m_auiRoot, "/AuiDef/AuiNodeList/AuiNode[@volatile=\"1\"]", arr, 0, 1)
+      m_auiRoot, "/AuiDef/AuiNodeList/AuiNode[@volatile=\"1\"]", arr, 0, 1)
 END FUNCTION
 
 -- Generates a list of tags
@@ -145,10 +145,10 @@ PRIVATE FUNCTION get_aui_info(tagName, arr, info)
   CASE info
     WHEN AUI_CHILDREN
       LET xpath =
-        SFMT("/AuiDef/AuiNodeList/AuiNode[@name=\"%1\"]/AuiElement", tagName)
+          SFMT("/AuiDef/AuiNodeList/AuiNode[@name=\"%1\"]/AuiElement", tagName)
     WHEN AUI_ATTRIBUTES
       LET xpath =
-        SFMT("/AuiDef/AuiNodeList/AuiNode[@name=\"%1\"]/AuiAttr", tagName)
+          SFMT("/AuiDef/AuiNodeList/AuiNode[@name=\"%1\"]/AuiAttr", tagName)
     OTHERWISE
       LET xpath = ("/XXX")
   END CASE
@@ -163,11 +163,11 @@ PRIVATE FUNCTION get_attr_def(attrName, what)
   DEFINE nodelist om.NodeList
   IF NOT (what = "type" OR what = "usage") THEN
     CALL myerr(
-      SFMT("get_attr_def:wrong what '%1',must be 'type' or 'usage'", what))
+        SFMT("get_attr_def:wrong what '%1',must be 'type' or 'usage'", what))
   END IF
 
   LET xpath = SFMT("/AuiDef/AuiAttrDefList/AuiAttrDef[@name=\"%1\"]", attrName)
-  LET nodelist = m_auiroot.selectByPath(xpath)
+  LET nodelist = m_auiRoot.selectByPath(xpath)
   MYASSERT(nodelist.getLength() == 1)
   LET node = nodelist.item(1)
   RETURN node.getAttribute("type")
@@ -186,7 +186,7 @@ PRIVATE FUNCTION myerr(errstr STRING)
   CALL ch.openFile("<stderr>", "w")
   IF mShowStack THEN
     CALL ch.writeLine(
-      SFMT("ERROR:%1,stack:\n%2", errstr, base.Application.getStackTrace()))
+        SFMT("ERROR:%1,stack:\n%2", errstr, base.Application.getStackTrace()))
   ELSE
     CALL ch.writeLine(SFMT("ERROR:%1", errstr))
   END IF

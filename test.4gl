@@ -42,7 +42,7 @@ MAIN
   MYASSERT(t2.fname = "Hans")
   MYASSERT(t2.lname = "Hansen")
   INITIALIZE t2 TO NULL
-  CALL copyRecord(reflect.Value.valueOf(t1),reflect.Value.valueOf(t2))
+  CALL copyRecord(reflect.Value.valueOf(t1), reflect.Value.valueOf(t2))
   MYASSERT(t2.fname = "Hans")
   MYASSERT(t2.lname = "Hansen")
   LET t3 = t2 --this surprisingly works, reflection says no..so smells like
@@ -59,7 +59,7 @@ MAIN
   --LET t5=t1 --doesn't work, compiler rejected
   --in this case we could use the ByName helper
   CALL utils.copyRecordByName(
-    reflect.Value.valueOf(t1), reflect.Value.valueOf(t5))
+      reflect.Value.valueOf(t1), reflect.Value.valueOf(t5))
   MYASSERT(t5.fname = "Hans")
   MYASSERT(t5.lname = "Hansen")
 
@@ -70,7 +70,7 @@ MAIN
   --which isn't logical to me because a single RECORD
   --assignment is accepted by the compiler
   CALL utils.copyArrayOfRecord(
-    reflect.Value.valueOf(t1arr), reflect.Value.valueOf(t2arr))
+      reflect.Value.valueOf(t1arr), reflect.Value.valueOf(t2arr))
   --using this will fail and advise you to use copyArrayOfRecord()
   --CALL utils.copyArrayOfRecordByName(reflect.Value.valueOf(t1arr),reflect.Value.valueOf(t2arr))
   DISPLAY util.JSON.stringify(t2arr)
@@ -78,13 +78,13 @@ MAIN
   MYASSERT(t2arr[2].lname = "Hansen")
   MYASSERT(t2arr.getLength() = 2)
   CALL utils.copyArrayOfRecord(
-    reflect.Value.valueOf(t2arr), reflect.Value.valueOf(t3arr))
+      reflect.Value.valueOf(t2arr), reflect.Value.valueOf(t3arr))
   DISPLAY util.JSON.stringify(t3arr)
   MYASSERT(t3arr[1].fname = "Hans")
   MYASSERT(t3arr[2].lname = "Hansen")
   MYASSERT(t3arr.getLength() = 2)
   CALL utils.copyArrayOfRecord(
-    reflect.Value.valueOf(t3arr), reflect.Value.valueOf(t4arr))
+      reflect.Value.valueOf(t3arr), reflect.Value.valueOf(t4arr))
   DISPLAY util.JSON.stringify(t4arr)
   MYASSERT(t4arr[1].fname = "Hans")
   MYASSERT(t4arr[2].lname = "Hansen")
@@ -94,7 +94,7 @@ MAIN
   --therefore we could use the "ByName" variant
   LET t5arr[5].fname = "Willi"
   CALL utils.copyArrayOfRecordByName(
-    reflect.Value.valueOf(t1arr), reflect.Value.valueOf(t5arr))
+      reflect.Value.valueOf(t1arr), reflect.Value.valueOf(t5arr))
   MYASSERT(t5arr.getLength() = 2)
   DISPLAY util.JSON.stringify(t5arr)
   MYASSERT(t5arr[1].fname = "Hans")

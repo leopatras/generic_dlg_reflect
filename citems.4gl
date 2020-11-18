@@ -7,10 +7,10 @@ IMPORT FGL utils
 IMPORT FGL fgldialog
 IMPORT FGL utils_customer
 SCHEMA stores
-PUBLIC TYPE T_item RECORD 
-   it RECORD LIKE items.*,
-   upd STRING,
-   del STRING
+PUBLIC TYPE T_item RECORD
+  it RECORD LIKE items.*,
+  upd STRING,
+  del STRING
 END RECORD
 TYPE T_items DYNAMIC ARRAY OF T_item
 
@@ -33,14 +33,18 @@ FUNCTION fetchItems(items T_items, where STRING)
   END FOREACH
 END FUNCTION
 
-
 FUNCTION updateItems(it RECORD LIKE items.*) RETURNS RECORD LIKE items.*
   DEFINE num LIKE items.item_num = it.item_num
   IF NOT int_flag THEN
-    UPDATE items SET items.* = it.* WHERE @item_num = $num AND @order_num = it.order_num
+    UPDATE items
+        SET items.* = it.*
+        WHERE @item_num = $num AND @order_num = it.order_num
   ELSE
     --re read to repair changes to the record, this avoids a save var
-    SELECT * INTO it.* FROM items WHERE @item_num == $num AND @order_num = it.order_num
+    SELECT *
+        INTO it.*
+        FROM items
+        WHERE @item_num == $num AND @order_num = it.order_num
   END IF
   RETURN it
 END FUNCTION
@@ -107,16 +111,16 @@ FUNCTION (self TM_BrowseOrd) browseArray(items T_items)
     CALL self.setBrowseTitle(filterActive)
     DISPLAY ARRAY items TO scr.* ATTRIBUTE(UNBUFFERED, ACCEPT = FALSE)
       BEFORE DISPLAY
-        CALL utils.checkCommonDA_Actions(DIALOG,self.o)
+        CALL utils.checkCommonDA_Actions(DIALOG, self.o)
       ON ACTION cancel
         LET done = TRUE
         EXIT DISPLAY
       ON UPDATE
         CALL self.inputRow(items[arr_curr()].*, TRUE)
-          RETURNING items[arr_curr()].*
+            RETURNING items[arr_curr()].*
       ON APPEND
         CALL self.inputRow(items[arr_curr()].*, FALSE)
-          RETURNING items[arr_curr()].*
+            RETURNING items[arr_curr()].*
       ON DELETE
         IF utils.reallyDeleteRecords() THEN
           VAR num = items[arr_curr()].it.item_num
@@ -137,15 +141,15 @@ FUNCTION (self TM_BrowseOrd) browseArray(items T_items)
 END FUNCTION
 
 PRIVATE FUNCTION (self TM_BrowseOrd)
-  inputRow(
-  item T_item, update BOOLEAN)
-  RETURNS T_item
+    inputRow(
+    item T_item, update BOOLEAN)
+    RETURNS T_item
   UNUSED(self)
   --VAR winId = openDynamicWindow("customers_singlerow")
   --CALL fgl_settitle(SFMT("Order: %1", IIF(update, "Update", "New")))
   LET int_flag = FALSE
   INPUT BY NAME item.it.* ATTRIBUTES(UNBUFFERED, WITHOUT DEFAULTS = update)
-  MYASSERT(update==TRUE)
+  MYASSERT(update == TRUE)
   CALL updateItems(item.it.*) RETURNING item.it.*
   --CALL utils.closeDynamicWindow(winId)
   RETURN item
@@ -156,14 +160,14 @@ PRIVATE FUNCTION (self TM_BrowseOrd) setBrowseTitle(filterActive BOOLEAN)
     CALL fgl_settitle(self.o.browseTitle)
   ELSE
     CALL fgl_settitle(
-      SFMT("%1 %2", self.o.browseTitle, IIF(filterActive, "filtered", "all")))
+        SFMT("%1 %2", self.o.browseTitle, IIF(filterActive, "filtered", "all")))
   END IF
 END FUNCTION
 
 PRIVATE FUNCTION (self TM_BrowseOrd) getFilterForm() RETURNS STRING
   DEFINE frm STRING
   LET frm =
-    IIF(self.o.filterForm IS NOT NULL, self.o.filterForm, self.o.inputForm)
+      IIF(self.o.filterForm IS NOT NULL, self.o.filterForm, self.o.inputForm)
   RETURN frm
 END FUNCTION
 
@@ -175,12 +179,12 @@ PRIVATE FUNCTION (self TM_BrowseOrd) getFilter() RETURNS STRING
     LET winId = utils.openDynamicWindow(filterForm)
     IF self.o.filterTitle IS NULL THEN
       LET self.o.filterTitle =
-        SFMT("%1: Input filter criteria", utils.getFormTitle())
+          SFMT("%1: Input filter criteria", utils.getFormTitle())
     END IF
   ELSE
     IF self.o.filterTitle IS NULL THEN
       LET self.o.filterTitle =
-        SFMT("%1: Input filter criteria", self.browseFormTextOrig)
+          SFMT("%1: Input filter criteria", self.browseFormTextOrig)
     END IF
   END IF
   CALL fgl_settitle(self.o.filterTitle)
@@ -200,14 +204,14 @@ FUNCTION showItems(order_num LIKE orders.order_num, custName STRING)
   LET m_order_num = order_num
 
   VAR opts T_SingleTableDAOptions =
-    (browseForm: "items",
-      --inputForm: "customers_singlerow",
-      --filterForm: "customers_singlerow",
-      hasUpdate: TRUE,
-      addToolBar: TRUE)
+      (browseForm: "items",
+          --inputForm: "customers_singlerow",
+          --filterForm: "customers_singlerow",
+          hasUpdate: TRUE,
+          addToolBar: TRUE)
   IF m_order_num >= 0 THEN
     LET opts.browseTitle =
-      SFMT("Items of Order %1,Customer: %2", order_num, custName)
+        SFMT("Items of Order %1,Customer: %2", order_num, custName)
   ELSE
     LET opts.hasDelete = TRUE
     LET opts.hasFilter = TRUE

@@ -103,12 +103,12 @@ END FUNCTION
 --if this function is called the record field member has the *new* value already (filled in by reflection)
 --if the field validation for a particular field isn't ok, RETURN an ERROR string
 FUNCTION (self TM_customer)
-  AfterField(
-  d ui.Dialog, fieldName STRING, oldValue STRING)
-  RETURNS STRING
+    AfterField(
+    d ui.Dialog, fieldName STRING, oldValue STRING)
+    RETURNS STRING
   UNUSED(self)
   DISPLAY SFMT("AFTER FIELD field:%1 value:%2 oldValue:%3",
-    fieldName, d.getFieldValue(fieldName), oldValue)
+      fieldName, d.getFieldValue(fieldName), oldValue)
   CASE
     WHEN fieldName == cols_customer.C_zipcode AND length(self.cust.zipcode) <> 5
       DISPLAY fieldName, ":'", self.cust.zipcode, "'"
@@ -116,6 +116,8 @@ FUNCTION (self TM_customer)
   END CASE
   RETURN NULL --NULL means: no error
 END FUNCTION
+
+--} End TM_customer
 
 FUNCTION (self TM_customer) checkInterfaces()
   --dummy func to enable a compiler check until IMPLEMENTS is there
@@ -133,25 +135,24 @@ FUNCTION (self TM_customer) checkInterfaces()
   LET iOAD = self
   LET iOAI = self
 END FUNCTION
---} End TM_customer
 
 FUNCTION main()
   DEFINE arr DYNAMIC ARRAY OF TM_customer
   DEFINE opts T_SingleTableDAOptions =
-    (sqlAll: "SELECT * FROM CUSTOMER AS cust",
-      browseForm: "customers",
-      --browseForm: "customers_singlerow",
-      browseRecord: "scr",
-      inputForm: "customers_singlerow",
-      --filterForm: "customers_singlerow",
-      autoPhantom:
-         TRUE, --tolerates missing FormFields/TableColumns in the forms
-      addClickableImages: FALSE,
-      hasUpdate: TRUE,
-      hasAppend: TRUE,
-      hasDelete: TRUE,
-      hasFilter: TRUE -- ,filterInitially:TRUE
-      , addToolBar: TRUE)
+      (sqlAll: "SELECT * FROM CUSTOMER AS cust",
+          browseForm: "customers",
+          --browseForm: "customers_singlerow",
+          browseRecord: "scr",
+          inputForm: "customers_singlerow",
+          --filterForm: "customers_singlerow",
+          autoPhantom:
+               TRUE, --tolerates missing FormFields/TableColumns in the forms
+          addClickableImages: FALSE,
+          hasUpdate: TRUE,
+          hasAppend: TRUE,
+          hasDelete: TRUE,
+          hasFilter: TRUE -- ,filterInitially:TRUE
+          , addToolBar: TRUE)
   CALL utils.dbconnect()
   --we must pass the reflect value of the array,
   --the browseArray function fills the array with SQL data

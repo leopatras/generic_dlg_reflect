@@ -17,8 +17,8 @@ FUNCTION countLine(line STRING)
   END IF
   --don't count comments and UNUSED
   IF t.getIndexOf("#", 1) == 1
-    OR t.getIndexOf("--", 1) == 1
-    OR t.getIndexOf("UNUSED(", 1) == 1 THEN
+      OR t.getIndexOf("--", 1) == 1
+      OR t.getIndexOf("UNUSED(", 1) == 1 THEN
     RETURN
   END IF
   {

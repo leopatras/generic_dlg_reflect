@@ -25,8 +25,8 @@ FUNCTION createDatabase()
   LET driver = "sqlite"
 
   IF (src
-    := base.Application.getResourceEntry(
-      "dbi.database.stores.source")) IS NOT NULL THEN
+      := base.Application.getResourceEntry(
+          "dbi.database.stores.source")) IS NOT NULL THEN
     LET driver = base.Application.getResourceEntry("dbi.database.stores.driver")
     DISPLAY "db src:", src, ",db driver:", driver
     LET haveProfile = TRUE
@@ -55,55 +55,55 @@ FUNCTION createDatabase()
   END IF
 
   CREATE TABLE customer(
-    customer_num SERIAL,
-    fname CHAR(15),
-    lname CHAR(15),
-    company CHAR(20),
-    address1 CHAR(20),
-    address2 CHAR(20),
-    city CHAR(15),
-    state CHAR(2),
-    zipcode CHAR(5),
-    phone CHAR(18))
+      customer_num SERIAL,
+      fname CHAR(15),
+      lname CHAR(15),
+      company CHAR(20),
+      address1 CHAR(20),
+      address2 CHAR(20),
+      city CHAR(15),
+      state CHAR(2),
+      zipcode CHAR(5),
+      phone CHAR(18))
   CREATE UNIQUE INDEX c_num_ix ON customer(customer_num)
   CREATE INDEX zip_ix ON customer(zipcode)
   CREATE TABLE cust_ex(customer_num INTEGER, comments CHAR(255))
   CREATE INDEX cext_num_ix ON cust_ex(customer_num)
 
   CREATE TABLE orders(
-    order_num SERIAL,
-    order_date DATE,
-    customer_num INTEGER,
-    ship_instruct CHAR(40),
-    backlog CHAR(1),
-    po_num CHAR(10),
-    ship_date DATE,
-    ship_weight DECIMAL(8, 2),
-    ship_charge MONEY(6, 2),
-    paid_date DATE)
+      order_num SERIAL,
+      order_date DATE,
+      customer_num INTEGER,
+      ship_instruct CHAR(40),
+      backlog CHAR(1),
+      po_num CHAR(10),
+      ship_date DATE,
+      ship_weight DECIMAL(8, 2),
+      ship_charge MONEY(6, 2),
+      paid_date DATE)
   CREATE UNIQUE INDEX o_num_ix ON orders(order_num)
   CREATE INDEX o_c_num_ix ON orders(customer_num)
 
   CREATE TABLE items(
-    --item_num SERIAL,
-    item_num INTEGER,
-    order_num INTEGER,
-    stock_num SMALLINT,
-    manu_code CHAR(3),
-    quantity SMALLINT,
-    total_price MONEY(8, 2))
+      --item_num SERIAL,
+      item_num INTEGER,
+      order_num INTEGER,
+      stock_num SMALLINT,
+      manu_code CHAR(3),
+      quantity SMALLINT,
+      total_price MONEY(8, 2))
   --CREATE UNIQUE INDEX o_item_ix ON items (item_num)
   CREATE UNIQUE INDEX o_item_ix ON items(order_num, item_num)
   CREATE INDEX i_o_num_ix ON items(order_num)
   CREATE INDEX st_man_ix ON items(stock_num, manu_code)
 
   CREATE TABLE stock(
-    stock_num SMALLINT,
-    manu_code CHAR(3),
-    description CHAR(15),
-    unit_price MONEY(6, 2),
-    unit CHAR(4),
-    unit_descr CHAR(15))
+      stock_num SMALLINT,
+      manu_code CHAR(3),
+      description CHAR(15),
+      unit_price MONEY(6, 2),
+      unit CHAR(4),
+      unit_descr CHAR(15))
   CREATE UNIQUE INDEX stk_man_ix ON stock(stock_num, manu_code)
 
   CREATE TABLE manufact(manu_code CHAR(3), manu_name CHAR(15), unknown1 INT)
@@ -128,7 +128,7 @@ FUNCTION createDatabase()
   IF haveProfile THEN
     CALL checkRUN("fgldbsch -db stores")
   ELSE
-    CALL checkRUN(sfmt("fgldbsch -dv %1 -of stores -db stores.dbs", driver))
+    CALL checkRUN(SFMT("fgldbsch -dv %1 -of stores -db stores.dbs", driver))
   END IF
   DISPLAY "created stores db"
   IF fgldbutl.db_get_database_type() == "PGS" THEN
@@ -140,6 +140,6 @@ FUNCTION checkRUN(cmd STRING)
   DEFINE code INT
   RUN cmd RETURNING code
   IF code THEN
-    CALL myerr(sfmt("command '%1' failed.",cmd))
+    CALL myerr(SFMT("command '%1' failed.", cmd))
   END IF
 END FUNCTION

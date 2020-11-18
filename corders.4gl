@@ -21,7 +21,7 @@ FUNCTION fetchOrders(orders T_orders, where STRING)
   DEFINE n INT
   DEFINE rwhere STRING
   CALL orders.clear()
-  LET rwhere=IIF(m_cust_num>=0,sfmt("customer_num=%1",m_cust_num),where)
+  LET rwhere = IIF(m_cust_num >= 0, SFMT("customer_num=%1", m_cust_num), where)
   VAR sql = SFMT("SELECT * FROM orders WHERE %1", rwhere)
   PREPARE s1 FROM sql
   DECLARE cu1 CURSOR FOR s1
@@ -104,8 +104,8 @@ FUNCTION (self TM_BrowseOrd) browseArray(orders T_orders)
     CALL self.setBrowseTitle(filterActive)
     DISPLAY ARRAY orders TO scr.* ATTRIBUTE(UNBUFFERED, ACCEPT = FALSE)
       BEFORE DISPLAY
-        CALL utils.checkCommonDA_Actions(DIALOG,self.o)
-        IF m_cust_num>=0 THEN
+        CALL utils.checkCommonDA_Actions(DIALOG, self.o)
+        IF m_cust_num >= 0 THEN
           CALL DIALOG.setActionHidden("show_customer", 1)
         END IF
       ON ACTION cancel
@@ -113,10 +113,10 @@ FUNCTION (self TM_BrowseOrd) browseArray(orders T_orders)
         EXIT DISPLAY
       ON UPDATE
         CALL self.inputRow(orders[arr_curr()].*, TRUE)
-          RETURNING orders[arr_curr()].*
+            RETURNING orders[arr_curr()].*
       ON APPEND
         CALL self.inputRow(orders[arr_curr()].*, FALSE)
-          RETURNING orders[arr_curr()].*
+            RETURNING orders[arr_curr()].*
       ON DELETE
         IF utils.reallyDeleteRecords() THEN
           VAR num = orders[arr_curr()].order_num
@@ -141,9 +141,9 @@ FUNCTION (self TM_BrowseOrd) browseArray(orders T_orders)
 END FUNCTION
 
 PRIVATE FUNCTION (self TM_BrowseOrd)
-  inputRow(
-  order T_order, update BOOLEAN)
-  RETURNS T_order
+    inputRow(
+    order T_order, update BOOLEAN)
+    RETURNS T_order
   UNUSED(self)
   --VAR winId = openDynamicWindow("customers_singlerow")
   --CALL fgl_settitle(SFMT("Order: %1", IIF(update, "Update", "New")))
@@ -164,14 +164,14 @@ PRIVATE FUNCTION (self TM_BrowseOrd) setBrowseTitle(filterActive BOOLEAN)
     CALL fgl_settitle(self.o.browseTitle)
   ELSE
     CALL fgl_settitle(
-      SFMT("%1 %2", self.o.browseTitle, IIF(filterActive, "filtered", "all")))
+        SFMT("%1 %2", self.o.browseTitle, IIF(filterActive, "filtered", "all")))
   END IF
 END FUNCTION
 
 PRIVATE FUNCTION (self TM_BrowseOrd) getFilterForm() RETURNS STRING
   DEFINE frm STRING
   LET frm =
-    IIF(self.o.filterForm IS NOT NULL, self.o.filterForm, self.o.inputForm)
+      IIF(self.o.filterForm IS NOT NULL, self.o.filterForm, self.o.inputForm)
   RETURN frm
 END FUNCTION
 
@@ -183,12 +183,12 @@ PRIVATE FUNCTION (self TM_BrowseOrd) getFilter() RETURNS STRING
     LET winId = utils.openDynamicWindow(filterForm)
     IF self.o.filterTitle IS NULL THEN
       LET self.o.filterTitle =
-        SFMT("%1: Input filter criteria", utils.getFormTitle())
+          SFMT("%1: Input filter criteria", utils.getFormTitle())
     END IF
   ELSE
     IF self.o.filterTitle IS NULL THEN
       LET self.o.filterTitle =
-        SFMT("%1: Input filter criteria", self.browseFormTextOrig)
+          SFMT("%1: Input filter criteria", self.browseFormTextOrig)
     END IF
   END IF
   CALL fgl_settitle(self.o.filterTitle)
@@ -204,31 +204,31 @@ PRIVATE FUNCTION (self TM_BrowseOrd) getFilter() RETURNS STRING
 END FUNCTION
 
 FUNCTION showOrders(
-  customer_num LIKE customer.customer_num,
-  fname LIKE customer.fname,
-  lname LIKE customer.lname)
+    customer_num LIKE customer.customer_num,
+    fname LIKE customer.fname,
+    lname LIKE customer.lname)
   DEFINE arr T_orders
-  LET m_cust_num=customer_num
+  LET m_cust_num = customer_num
 
   VAR opts T_SingleTableDAOptions =
-    (browseForm: "orders",
-      --inputForm: "customers_singlerow",
-      --filterForm: "customers_singlerow",
-      hasUpdate: TRUE,
-      addToolBar: TRUE)
-  IF m_cust_num>=0 THEN
-    LET m_custName=sfmt("%1 %2",fname CLIPPED,lname CLIPPED)
+      (browseForm: "orders",
+          --inputForm: "customers_singlerow",
+          --filterForm: "customers_singlerow",
+          hasUpdate: TRUE,
+          addToolBar: TRUE)
+  IF m_cust_num >= 0 THEN
+    LET m_custName = SFMT("%1 %2", fname CLIPPED, lname CLIPPED)
     LET opts.browseTitle =
-      SFMT("Orders of Customer %1: %2", customer_num, m_custName)
+        SFMT("Orders of Customer %1: %2", customer_num, m_custName)
   ELSE
-    LET opts.hasAppend=TRUE
-    LET opts.hasDelete=TRUE
-    LET opts.hasFilter=TRUE
+    LET opts.hasAppend = TRUE
+    LET opts.hasDelete = TRUE
+    LET opts.hasFilter = TRUE
   END IF
   CALL utils.dbconnect()
   CALL browseArray(opts, arr)
 END FUNCTION
 
 FUNCTION main()
-  CALL showOrders(-1,"","")
+  CALL showOrders(-1, "", "")
 END FUNCTION

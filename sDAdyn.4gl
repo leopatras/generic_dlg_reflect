@@ -65,8 +65,8 @@ END INTERFACE
 
 PUBLIC TYPE I_OnEventInINPUT INTERFACE
   OnEventInINPUT(
-    d ui.Dialog, ev STRING, fieldName STRING, value STRING)
-    RETURNS(BOOLEAN, STRING)
+      d ui.Dialog, ev STRING, fieldName STRING, value STRING)
+      RETURNS(BOOLEAN, STRING)
 END INTERFACE
 
 PUBLIC TYPE I_InsertOrUpdate INTERFACE
@@ -76,7 +76,6 @@ END INTERFACE
 PUBLIC TYPE I_InsertOrUpdateOfRow INTERFACE
   InsertOrUpdateOfRow(update BOOLEAN, row INT) RETURNS()
 END INTERFACE
-
 
 --PUBLIC TYPE T_MDOptions RECORD
 --  sdopts T_SingleTableDAOptions,
@@ -111,8 +110,8 @@ END RECORD
 --hides/shows some build in actions and the custom
 --row bound actions
 FUNCTION (self TM_SingleTableDA)
-  checkRowBoundActions(
-  d ui.Dialog, arrVal reflect.Value)
+    checkRowBoundActions(
+    d ui.Dialog, arrVal reflect.Value)
   DEFINE empty BOOLEAN
   DEFINE i INT
   LET empty = arrVal.getLength() == 0
@@ -131,14 +130,14 @@ END FUNCTION
 PRIVATE FUNCTION (self TM_SingleTableDA) getSQLFilterBase() RETURNS STRING
   DEFINE sqlFilterBase STRING
   LET sqlFilterBase =
-    IIF(self.o.sqlFilterBase IS NOT NULL, self.o.sqlFilterBase, self.o.sqlAll)
+      IIF(self.o.sqlFilterBase IS NOT NULL, self.o.sqlFilterBase, self.o.sqlAll)
   MYASSERT(sqlFilterBase IS NOT NULL)
   RETURN (sqlFilterBase)
 END FUNCTION
 
 FUNCTION (self TM_SingleTableDA)
-  addOnActionRowBound(
-  d ui.Dialog, actionName STRING)
+    addOnActionRowBound(
+    d ui.Dialog, actionName STRING)
   CALL self.addOnAction(d, actionName)
   --ensure the function is only called in the DISPLAY ARRAY context
   MYASSERT(self.dlgDA == d)
@@ -226,8 +225,8 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
     IF filterActive THEN
       CALL self.getFilter(trec) RETURNING sql, hasWherePart
       IF (sql IS NOT NULL)
-        AND (NOT hasWherePart)
-        AND (self.o.sqlFilterBase IS NULL) THEN
+          AND (NOT hasWherePart)
+          AND (self.o.sqlFilterBase IS NULL) THEN
         --DISPLAY "filter wasn't actually set"
         LET filterActive = FALSE
       ELSE
@@ -251,13 +250,13 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
     END IF
     IF filterActive AND arrval.getLength() == 0 THEN
       CALL fgl_winButton(
-        title: "No records found",
-        "Please enter other criteria or show all data.",
-        ans: "Input other filter criteria",
-        items: "Input other filter criteria|Show all data",
-        icon: "attention",
-        dang: 0)
-        RETURNING ans
+          title: "No records found",
+          "Please enter other criteria or show all data.",
+          ans: "Input other filter criteria",
+          items: "Input other filter criteria|Show all data",
+          icon: "attention",
+          dang: 0)
+          RETURNING ans
       IF NOT ans.equals("Input other filter criteria") THEN
         LET filterActive = FALSE
       END IF
@@ -301,7 +300,7 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
         WHEN event = "BEFORE ROW"
           LET row = d.getCurrentRow(rec)
           IF delegateDA IS NOT NULL
-            AND delegateDA.canAssignToVariable(ifvarBR) THEN
+              AND delegateDA.canAssignToVariable(ifvarBR) THEN
             CALL delegateDA.assignToVariable(ifvarBR)
             CALL ifvarBR.BeforeRow(d, row)
           END IF
@@ -337,7 +336,7 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
         WHEN event = "AFTER ROW"
           LET row = d.getCurrentRow(rec)
           IF delegateDA IS NOT NULL
-            AND delegateDA.canAssignToVariable(ifvarAR) THEN
+              AND delegateDA.canAssignToVariable(ifvarAR) THEN
             CALL delegateDA.assignToVariable(ifvarAR)
             CALL ifvarAR.AfterRow(d, row)
           END IF
@@ -369,7 +368,7 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
           LET row = d.getCurrentRow(rec)
           --Call action trigger for the delegateDA if present
           IF delegateDA IS NOT NULL
-            AND delegateDA.canAssignToVariable(ifvarOA) THEN
+              AND delegateDA.canAssignToVariable(ifvarOA) THEN
             CALL delegateDA.assignToVariable(ifvarOA)
             CALL ifvarOA.OnActionInDA(actionFromEvent(event), row)
           END IF
@@ -384,7 +383,7 @@ FUNCTION (self TM_SingleTableDA) browseArray() RETURNS()
         OTHERWISE
           LET row = d.getCurrentRow(rec)
           IF delegateDA IS NOT NULL
-            AND delegateDA.canAssignToVariable(ifvarOE) THEN
+              AND delegateDA.canAssignToVariable(ifvarOE) THEN
             CALL delegateDA.assignToVariable(ifvarOE)
             CALL ifvarOE.OnEventInDA(d, row, event)
           END IF
@@ -444,7 +443,7 @@ END FUNCTION
 
 --sets all unJUSTIFYed DATE colummns to be right aligned
 FUNCTION checkDATEjustify(
-  trec reflect.Type, names T_INT_DICT, screenRec STRING, qualified BOOLEAN)
+    trec reflect.Type, names T_INT_DICT, screenRec STRING, qualified BOOLEAN)
   VAR formRoot = utils.getCurrentForm()
   VAR table = utils.getTableByScreenRecord(formRoot, screenRec)
   IF table IS NULL THEN
@@ -470,8 +469,8 @@ FUNCTION checkDATEjustify(
 END FUNCTION
 
 FUNCTION (self TM_SingleTableDA)
-  handleUpdateRow(
-  arrVal reflect.Value, d ui.Dialog, names T_INT_DICT, filterActive BOOLEAN)
+    handleUpdateRow(
+    arrVal reflect.Value, d ui.Dialog, names T_INT_DICT, filterActive BOOLEAN)
   DEFINE currRow, savedrow INT
   DEFINE currVal, savedVal reflect.Value
   LET currRow = d.getCurrentRow(self.o.browseRecord)
@@ -492,8 +491,8 @@ FUNCTION (self TM_SingleTableDA)
 END FUNCTION
 
 FUNCTION (self TM_SingleTableDA)
-  handleAppendRow(
-  arrVal reflect.Value, d ui.Dialog, names T_INT_DICT, filterActive BOOLEAN)
+    handleAppendRow(
+    arrVal reflect.Value, d ui.Dialog, names T_INT_DICT, filterActive BOOLEAN)
   DEFINE newRow INT
   CALL arrVal.appendArrayElement()
   LET newRow = arrVal.getLength()
@@ -509,12 +508,12 @@ FUNCTION (self TM_SingleTableDA)
 END FUNCTION
 
 FUNCTION (self TM_SingleTableDA)
-  callDeleteRow(
-  el reflect.Value, d ui.Dialog, currRow INT, names T_INT_DICT)
+    callDeleteRow(
+    el reflect.Value, d ui.Dialog, currRow INT, names T_INT_DICT)
   DEFINE ifvarDelRow I_DeleteRow
   WHENEVER ERROR RAISE
   IF self.o.delegateDA IS NOT NULL --first check array delegate
-    AND self.o.delegateDA.canAssignToVariable(ifvarDelRow) THEN
+      AND self.o.delegateDA.canAssignToVariable(ifvarDelRow) THEN
     CALL ifvarDelRow.DeleteRow(d, currRow)
   ELSE --then element delegate
     IF el.canAssignToVariable(ifvarDelRow) THEN
@@ -531,8 +530,8 @@ FUNCTION (self TM_SingleTableDA)
 END FUNCTION
 
 FUNCTION (self TM_SingleTableDA)
-  handleDeleteRow(
-  arrVal reflect.Value, d ui.Dialog, names T_INT_DICT)
+    handleDeleteRow(
+    arrVal reflect.Value, d ui.Dialog, names T_INT_DICT)
   DEFINE currRow INT
   DEFINE el reflect.Value
   LET currRow = d.getCurrentRow(self.o.browseRecord)
@@ -548,9 +547,9 @@ FUNCTION (self TM_SingleTableDA)
         CALL arrVal.deleteArrayElement(currRow)
       CATCH
         CALL fgl_winMessage(
-          title: "The deletion failed failed",
-          SFMT("status:%1,err_get:%2", status, err_get(status)),
-          "error")
+            title: "The deletion failed failed",
+            SFMT("status:%1,err_get:%2", status, err_get(status)),
+            "error")
         ROLLBACK WORK
         LET int_flag = TRUE
       END TRY
@@ -563,7 +562,7 @@ FUNCTION (self TM_SingleTableDA)
 END FUNCTION
 
 PRIVATE FUNCTION appendClickableImageColumn(
-  t om.DomNode, colName STRING, actionName STRING)
+    t om.DomNode, colName STRING, actionName STRING)
   DEFINE tc, img om.DomNode
   MYASSERT(t IS NOT NULL)
   MYASSERT(colName IS NOT NULL)
@@ -586,15 +585,15 @@ PRIVATE FUNCTION (self TM_SingleTableDA) checkClickableImages() RETURNS()
   DEFINE rec STRING
   LET rec = self.o.browseRecord
   IF NOT self.o.addClickableImages
-    OR ((NOT self.o.hasDelete) AND (NOT self.o.hasUpdate)) THEN
+      OR ((NOT self.o.hasDelete) AND (NOT self.o.hasUpdate)) THEN
     RETURN
   END IF
   LET root = ui.Window.getCurrent().getForm().getNode()
   LET l = root.selectByPath(SFMT('//Table[@tabName="%1"]', rec))
   IF l.getLength() == 0 THEN
     CALL myerrAndStackTrace(
-      SFMT("No way to add clickable images:Can't find screen record '%1' in Table nodes in '%2'",
-        rec, self.o.browseForm))
+        SFMT("No way to add clickable images:Can't find screen record '%1' in Table nodes in '%2'",
+            rec, self.o.browseForm))
   END IF
   MYASSERT(l.getLength() == 1)
   LET t = l.item(1)
@@ -611,21 +610,21 @@ PRIVATE FUNCTION (self TM_SingleTableDA) setBrowseTitle(filterActive BOOLEAN)
     CALL fgl_settitle(self.o.browseTitle)
   ELSE
     CALL fgl_settitle(
-      SFMT("%1 %2", self.o.browseTitle, IIF(filterActive, "filtered", "all")))
+        SFMT("%1 %2", self.o.browseTitle, IIF(filterActive, "filtered", "all")))
   END IF
 END FUNCTION
 
 PRIVATE FUNCTION (self TM_SingleTableDA) getFilterForm() RETURNS STRING
   DEFINE frm STRING
   LET frm =
-    IIF(self.o.filterForm IS NOT NULL, self.o.filterForm, self.o.inputForm)
+      IIF(self.o.filterForm IS NOT NULL, self.o.filterForm, self.o.inputForm)
   RETURN frm
 END FUNCTION
 
 PRIVATE FUNCTION (self TM_SingleTableDA)
-  getFilter(
-  trec reflect.Type)
-  RETURNS(STRING, BOOLEAN)
+    getFilter(
+    trec reflect.Type)
+    RETURNS(STRING, BOOLEAN)
   DEFINE d ui.Dialog
   DEFINE i, j, winId INT
   DEFINE s, q, sql STRING
@@ -636,12 +635,12 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
     LET winId = utils.openDynamicWindow(filterForm)
     IF self.o.filterTitle IS NULL THEN
       LET self.o.filterTitle =
-        SFMT("%1: Input filter criteria", utils.getFormTitle())
+          SFMT("%1: Input filter criteria", utils.getFormTitle())
     END IF
   ELSE
     IF self.o.filterTitle IS NULL THEN
       LET self.o.filterTitle =
-        SFMT("%1: Input filter criteria", self.browseFormTextOrig)
+          SFMT("%1: Input filter criteria", self.browseFormTextOrig)
     END IF
   END IF
   CALL fgl_settitle(self.o.filterTitle)
@@ -695,43 +694,48 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
   CALL utils.closeDynamicWindow(winId)
   --DISPLAY "filter SQL:", sql, ",q IS NULL:", q IS NOT NULL
   RETURN (sql),
-    q IS NOT NULL -- Need to make braces around sql: The compiler reads RETURN sql as RETURN; SQL ..
+      q IS NOT NULL -- Need to make braces around sql: The compiler reads RETURN sql as RETURN; SQL ..
 END FUNCTION
 
 PRIVATE FUNCTION (self TM_SingleTableDA)
-  describeFieldsForINPUT(
-  trec reflect.type, fields T_fields)
-  RETURNS T_INT_DICT
+    describeFieldsForINPUT(
+    trec reflect.type, fields T_fields)
+    RETURNS T_INT_DICT
   DEFINE columnNames T_STRING_DICT
   LET columnNames =
-    utils.getInputColumnNamesAndTableNames(self.o.qualifiedNames)
+      utils.getInputColumnNamesAndTableNames(self.o.qualifiedNames)
   DISPLAY "columnNames:", util.JSON.stringify(columnNames)
   RETURN self.describeFieldsINT(
-    columnNames, trec, fields, "current form", NULL, self.tableNamesINPUT)
+      columnNames, trec, fields, "current form", NULL, self.tableNamesINPUT)
 END FUNCTION
 
 PRIVATE FUNCTION (self TM_SingleTableDA)
-  describeFieldsForRecord(
-  rec STRING, frm STRING, trec reflect.type, fields T_fields)
-  RETURNS T_INT_DICT
+    describeFieldsForRecord(
+    rec STRING, frm STRING, trec reflect.type, fields T_fields)
+    RETURNS T_INT_DICT
   DEFINE f42f STRING
   DEFINE dict T_STRING_DICT
   LET f42f = utils.append42f(frm)
   LET dict = utils.readNamesFromScreenRecord(rec, f42f, self.o.qualifiedNames)
   DISPLAY "describeFieldsForRecord:", util.JSON.stringify(dict)
   RETURN self.describeFieldsINT(
-    dict, trec, fields, SFMT("screen record '%1'", rec), rec, self.tableNamesDA)
+      dict,
+      trec,
+      fields,
+      SFMT("screen record '%1'", rec),
+      rec,
+      self.tableNamesDA)
 END FUNCTION
 
 PRIVATE FUNCTION assignFieldFromType(
-  fields T_fields,
-  t reflect.Type,
-  dict T_STRING_DICT,
-  name STRING,
-  autoPhantom BOOLEAN,
-  out T_INT_DICT,
-  tableNames T_INT_DICT,
-  where STRING)
+    fields T_fields,
+    t reflect.Type,
+    dict T_STRING_DICT,
+    name STRING,
+    autoPhantom BOOLEAN,
+    out T_INT_DICT,
+    tableNames T_INT_DICT,
+    where STRING)
   DEFINE idx INT
   MYASSERT(name IS NOT NULL)
   CASE
@@ -745,19 +749,19 @@ PRIVATE FUNCTION assignFieldFromType(
       LET out[name] = idx --have the array field pos as value
     WHEN NOT autoPhantom
       CALL myerrAndStackTrace(
-        SFMT("array record member '%1' not found in %2", name, where))
+          SFMT("array record member '%1' not found in %2", name, where))
   END CASE
 END FUNCTION
 
 PRIVATE FUNCTION (self TM_SingleTableDA)
-  describeFieldsINT(
-  dict T_STRING_DICT,
-  trec reflect.Type,
-  fields T_fields,
-  where STRING,
-  rec STRING,
-  tableNames T_INT_DICT)
-  RETURNS T_INT_DICT
+    describeFieldsINT(
+    dict T_STRING_DICT,
+    trec reflect.Type,
+    fields T_fields,
+    where STRING,
+    rec STRING,
+    tableNames T_INT_DICT)
+    RETURNS T_INT_DICT
   DEFINE name, subname STRING
   DEFINE out T_INT_DICT
   DEFINE keys T_STRING_ARR
@@ -780,11 +784,11 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
         LET subname = tf.getFieldName(subIdx)
         LET subname = IIF(qualified, SFMT("%1.%2", name, subname), subname)
         CALL assignFieldFromType(
-          fields, subType, dict, subname, autoPhantom, out, tableNames, where)
+            fields, subType, dict, subname, autoPhantom, out, tableNames, where)
       END FOR
     ELSE
       CALL assignFieldFromType(
-        fields, tf, dict, name, autoPhantom, out, tableNames, where)
+          fields, tf, dict, name, autoPhantom, out, tableNames, where)
     END IF
   END FOR
   IF rec IS NOT NULL THEN
@@ -793,16 +797,16 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
     FOR i = 1 TO keys.getLength()
       LET name = keys[i]
       IF self.o.addClickableImages
-        AND ((NOT qualified AND (name == IMG_MOD OR name == IMG_DEL))
-          OR (qualified
-            AND (name == "formonly." || IMG_MOD
-              OR name == "formonly." || IMG_DEL))) THEN
+          AND ((NOT qualified AND (name == IMG_MOD OR name == IMG_DEL))
+              OR (qualified
+                  AND (name == "formonly." || IMG_MOD
+                      OR name == "formonly." || IMG_DEL))) THEN
         DISPLAY "auto create clickable image col:", name
       ELSE
         IF NOT self.o.autoPhantom THEN
           CALL myerrAndStackTrace(
-            SFMT("WARNING: screen record member '%1' of '%2' not found in array record",
-              name, rec))
+              SFMT("WARNING: screen record member '%1' of '%2' not found in array record",
+                  name, rec))
         END IF
       END IF
       LET j = fields.getLength() + 1
@@ -828,7 +832,7 @@ END FUNCTION
 
 --assigns a value from the reflected field to the Dialog field
 PRIVATE FUNCTION assignReflectValue(
-  value reflect.Value, name STRING, names T_INT_DICT, d ui.Dialog)
+    value reflect.Value, name STRING, names T_INT_DICT, d ui.Dialog)
   --only if the screen record contains the given (eventually qualified) name we assign
   IF NOT names.contains(name) THEN
     RETURN
@@ -839,12 +843,12 @@ END FUNCTION
 
 --assign a value from the Dialog field to the reflected field
 PRIVATE FUNCTION assignDlgValue(
-  fv reflect.Value,
-  name STRING,
-  names T_INT_DICT,
-  d ui.Dialog,
-  DA ui.Dialog,
-  browseNames T_INT_DICT)
+    fv reflect.Value,
+    name STRING,
+    names T_INT_DICT,
+    d ui.Dialog,
+    DA ui.Dialog,
+    browseNames T_INT_DICT)
   DEFINE value reflect.Value
   --only if the screen record contains the given (eventually qualified) name we assign
   IF names.contains(name) THEN
@@ -874,21 +878,21 @@ END FUNCTION
 
 --fills the internal dialog structure from an array passed by reflection
 PRIVATE FUNCTION (self TM_SingleTableDA)
-  setArrayData(
-  d ui.Dialog,
-  screenRec STRING,
-  arrval reflect.Value,
-  trec reflect.Type,
-  names T_INT_DICT)
+    setArrayData(
+    d ui.Dialog,
+    screenRec STRING,
+    arrval reflect.Value,
+    trec reflect.Type,
+    names T_INT_DICT)
   DEFINE i, len, fieldCnt INT
   DEFINE recv reflect.Value
   DEFINE qualified BOOLEAN = self.o.qualifiedNames
   LET len = arrval.getLength()
   LET fieldCnt = trec.getFieldCount()
   DISPLAY "setArrayData names:",
-    util.JSON.stringify(names),
-    ",fieldCnt:",
-    fieldCnt
+      util.JSON.stringify(names),
+      ",fieldCnt:",
+      fieldCnt
   FOR i = 1 TO len
     LET recv = arrval.getArrayElement(i)
     -- must set the current row before setting values
@@ -902,12 +906,12 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
 END FUNCTION
 
 PRIVATE FUNCTION getSubValueAndName(
-  fv reflect.Value,
-  fvt reflect.Type,
-  subIdx INT,
-  name STRING,
-  qualified BOOLEAN)
-  RETURNS(reflect.Value, STRING)
+    fv reflect.Value,
+    fvt reflect.Type,
+    subIdx INT,
+    name STRING,
+    qualified BOOLEAN)
+    RETURNS(reflect.Value, STRING)
   DEFINE subname STRING
   DEFINE subValue reflect.Value
   LET subname = fvt.getFieldName(subIdx)
@@ -917,12 +921,12 @@ PRIVATE FUNCTION getSubValueAndName(
 END FUNCTION
 
 PRIVATE FUNCTION copyRecValues2DlgValues(
-  recv reflect.Value,
-  trec reflect.Type,
-  fieldCnt INT,
-  d ui.Dialog,
-  names T_INT_DICT,
-  qualified BOOLEAN)
+    recv reflect.Value,
+    trec reflect.Type,
+    fieldCnt INT,
+    d ui.Dialog,
+    names T_INT_DICT,
+    qualified BOOLEAN)
   DEFINE idx, subIdx, subCnt INT
   DEFINE fv, fvsub reflect.Value
   DEFINE fvt reflect.Type
@@ -946,8 +950,8 @@ PRIVATE FUNCTION copyRecValues2DlgValues(
       LET subCnt = fvt.getFieldCount()
       FOR subIdx = 1 TO subCnt
         CALL getSubValueAndName(
-          fv, fvt, subIdx, name, qualified)
-          RETURNING fvsub, subname
+            fv, fvt, subIdx, name, qualified)
+            RETURNING fvsub, subname
         CALL assignReflectValue(fvsub, subname, names, d)
       END FOR
     ELSE
@@ -957,13 +961,13 @@ PRIVATE FUNCTION copyRecValues2DlgValues(
 END FUNCTION
 
 PRIVATE FUNCTION copyDlgValues2RecValues(
-  recv reflect.Value,
-  trec reflect.Type,
-  d ui.Dialog,
-  names T_INT_DICT,
-  DA ui.Dialog,
-  browseNames T_INT_DICT,
-  qualified BOOLEAN)
+    recv reflect.Value,
+    trec reflect.Type,
+    d ui.Dialog,
+    names T_INT_DICT,
+    DA ui.Dialog,
+    browseNames T_INT_DICT,
+    qualified BOOLEAN)
   DEFINE idx, subIdx INT
   DEFINE name, subname STRING
   DEFINE fv, fvsub reflect.Value
@@ -975,8 +979,8 @@ PRIVATE FUNCTION copyDlgValues2RecValues(
     IF fvt.getKind() == C_RECORD THEN
       FOR subIdx = 1 TO fvt.getFieldCount()
         CALL getSubValueAndName(
-          fv, fvt, subIdx, name, qualified)
-          RETURNING fvsub, subname
+            fv, fvt, subIdx, name, qualified)
+            RETURNING fvsub, subname
         CALL assignDlgValue(fvsub, subname, names, d, DA, browseNames)
       END FOR
     ELSE
@@ -986,8 +990,8 @@ PRIVATE FUNCTION copyDlgValues2RecValues(
 END FUNCTION
 
 PRIVATE FUNCTION getRecordFieldByName(
-  recv reflect.Value, fieldName STRING, qualified BOOLEAN)
-  RETURNS reflect.Value
+    recv reflect.Value, fieldName STRING, qualified BOOLEAN)
+    RETURNS reflect.Value
   DEFINE idx, subIdx INT
   DEFINE name, subname STRING
   DEFINE trec, fvt reflect.Type
@@ -1000,8 +1004,8 @@ PRIVATE FUNCTION getRecordFieldByName(
     IF fvt.getKind() == C_RECORD THEN
       FOR subIdx = 1 TO fvt.getFieldCount()
         CALL getSubValueAndName(
-          fv, fvt, subIdx, name, qualified)
-          RETURNING fvsub, subname
+            fv, fvt, subIdx, name, qualified)
+            RETURNING fvsub, subname
         IF subname == fieldName THEN
           RETURN fvsub
         END IF
@@ -1018,7 +1022,7 @@ END FUNCTION
 --assigns the dialog field name value to the RECORD member with
 --this name
 PRIVATE FUNCTION assignFieldValue(
-  d ui.Dialog, fieldName STRING, recordVal reflect.Value, qualified BOOLEAN)
+    d ui.Dialog, fieldName STRING, recordVal reflect.Value, qualified BOOLEAN)
   DEFINE fv, value reflect.Value
   MYASSERT(fieldName.getLength() > 0)
   LET fv = getRecordFieldByName(recordVal, fieldName, qualified)
@@ -1030,8 +1034,8 @@ PRIVATE FUNCTION assignFieldValue(
 END FUNCTION
 
 PRIVATE FUNCTION (self TM_SingleTableDA)
-  handleInsertOrUpdate(
-  update BOOLEAN, recordVal reflect.Value, names T_INT_DICT)
+    handleInsertOrUpdate(
+    update BOOLEAN, recordVal reflect.Value, names T_INT_DICT)
   DEFINE ifvarIU I_InsertOrUpdate
   DEFINE ifvarIURow I_InsertOrUpdateOfRow
   DEFINE row INT
@@ -1041,7 +1045,7 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
     CALL ifvarIU.InsertOrUpdate(update)
   ELSE
     IF self.o.delegateDA IS NOT NULL
-      AND self.o.delegateDA.canAssignToVariable(ifvarIURow) THEN
+        AND self.o.delegateDA.canAssignToVariable(ifvarIURow) THEN
       CALL self.o.delegateDA.assignToVariable(ifvarIURow)
       LET row = self.dlgDA.getCurrentRow(self.o.browseRecord)
       CALL ifvarIURow.InsertOrUpdateOfRow(update, row)
@@ -1055,10 +1059,10 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
       --DISPLAY "tabName:", tabName
       IF update THEN
         CALL sql2array.updateRecordInDBWithNames(
-          recordVal, names, tabName, self.o.qualifiedNames)
+            recordVal, names, tabName, self.o.qualifiedNames)
       ELSE
         CALL sql2array.insertRecordIntoDBWithNames(
-          recordVal, names, tabName, self.o.qualifiedNames)
+            recordVal, names, tabName, self.o.qualifiedNames)
       END IF
     END IF
   END IF
@@ -1069,8 +1073,8 @@ END FUNCTION
 --various interface methods of recordVal in application code
 --if they are implemented
 PRIVATE FUNCTION (self TM_SingleTableDA)
-  inputRow(
-  recordVal reflect.Value, title STRING, browseNames T_INT_DICT)
+    inputRow(
+    recordVal reflect.Value, title STRING, browseNames T_INT_DICT)
   DEFINE ev, err, curr, oldValue STRING
   DEFINE d ui.Dialog
   DEFINE winId INT
@@ -1104,7 +1108,7 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
   CALL d.addTrigger(ON_ACTION_cancel)
   -- copy values from Array to Input
   CALL copyRecValues2DlgValues(
-    recordVal, trec, trec.getFieldCount(), d, names, self.o.qualifiedNames)
+      recordVal, trec, trec.getFieldCount(), d, names, self.o.qualifiedNames)
   --call back the init method in INPUT
   --there one can add custom actions, hide fields etc
   IF recordVal.canAssignToVariable(ifvarII) THEN
@@ -1146,11 +1150,11 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
         IF recordVal.canAssignToVariable(ifvarIE) THEN
           CALL recordVal.assignToVariable(ifvarIE)
           CALL ifvarIE.OnEventInINPUT(
-              d,
-              ev,
-              curr,
-              IIF(curr.getLength() > 0, d.getFieldValue(curr), NULL))
-            RETURNING handled, err
+                  d,
+                  ev,
+                  curr,
+                  IIF(curr.getLength() > 0, d.getFieldValue(curr), NULL))
+              RETURNING handled, err
           IF handled THEN
             CONTINUE WHILE
           END IF
@@ -1173,7 +1177,13 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
   IF NOT int_flag THEN
     -- copy values from Input to DisplayArray and to the backing RECORD
     CALL copyDlgValues2RecValues(
-      recordVal, trec, d, names, self.dlgDA, browseNames, self.o.qualifiedNames)
+        recordVal,
+        trec,
+        d,
+        names,
+        self.dlgDA,
+        browseNames,
+        self.o.qualifiedNames)
     TRY
       BEGIN WORK
       CALL self.handleInsertOrUpdate(title == "Update", recordVal, names)
@@ -1181,9 +1191,9 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
     CATCH
       --CALL printRV("recordVal After Insert", recordVal)
       CALL fgl_winMessage(
-        title: SFMT("The %1 failed", title),
-        SFMT("status:%1,err_get:%2", status, err_get(status)),
-        "error")
+          title: SFMT("The %1 failed", title),
+          SFMT("status:%1,err_get:%2", status, err_get(status)),
+          "error")
       ROLLBACK WORK
       --CALL fgl_winMessage(title: sfmt("The %1 failed",title), message: sqlca.sqlerrm,icon: "error")
       GOTO again
@@ -1192,12 +1202,12 @@ PRIVATE FUNCTION (self TM_SingleTableDA)
     --we may have got an update in the insert (serial) so we need to sync the record
     --to the DA dialog values
     CALL copyRecValues2DlgValues(
-      recv: recordVal,
-      trec: trec,
-      fieldCnt: trec.getFieldCount(),
-      d: self.dlgDA,
-      names: browseNames,
-      qualified: self.o.qualifiedNames)
+        recv: recordVal,
+        trec: trec,
+        fieldCnt: trec.getFieldCount(),
+        d: self.dlgDA,
+        names: browseNames,
+        qualified: self.o.qualifiedNames)
   END IF
   CALL d.close()
   CALL utils.closeDynamicWindow(winId)

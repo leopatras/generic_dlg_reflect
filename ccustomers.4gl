@@ -99,7 +99,7 @@ FUNCTION (self TM_BrowseCust) browseArray(customers T_customers)
     CALL self.setBrowseTitle(filterActive)
     DISPLAY ARRAY customers TO scr.* ATTRIBUTE(UNBUFFERED, ACCEPT = FALSE)
       BEFORE DISPLAY
-        CALL utils.checkCommonDA_Actions(DIALOG,self.o)
+        CALL utils.checkCommonDA_Actions(DIALOG, self.o)
       BEFORE ROW
         CALL self.checkOrders(DIALOG, customers[arr_curr()].customer_num)
       ON ACTION cancel
@@ -107,14 +107,14 @@ FUNCTION (self TM_BrowseCust) browseArray(customers T_customers)
         EXIT DISPLAY
       ON UPDATE
         CALL self.inputRow(customers[arr_curr()].*, TRUE)
-          RETURNING customers[arr_curr()].*
+            RETURNING customers[arr_curr()].*
       ON APPEND
         CALL self.inputRow(customers[arr_curr()].*, FALSE)
-          RETURNING customers[arr_curr()].*
+            RETURNING customers[arr_curr()].*
       ON DELETE
         IF utils.reallyDeleteRecords() THEN
           DELETE FROM customer
-            WHERE @customer_num = $customers[arr_curr()].customer_num
+              WHERE @customer_num = $customers[arr_curr()].customer_num
         END IF
       ON ACTION filter
         LET prevWhere = IIF(filterActive, where, NULL)
@@ -133,9 +133,9 @@ FUNCTION (self TM_BrowseCust) browseArray(customers T_customers)
 END FUNCTION
 
 PRIVATE FUNCTION (self TM_BrowseCust)
-  inputRow(
-  customer T_customer, update BOOLEAN)
-  RETURNS T_customer
+    inputRow(
+    customer T_customer, update BOOLEAN)
+    RETURNS T_customer
   UNUSED(self)
   VAR winId = openDynamicWindow("customers_singlerow")
   CALL fgl_settitle(SFMT("Customer: %1", IIF(update, "Update", "New")))
@@ -164,15 +164,15 @@ PRIVATE FUNCTION (self TM_BrowseCust) setBrowseTitle(filterActive BOOLEAN)
     CALL fgl_settitle(self.o.browseTitle)
   ELSE
     CALL fgl_settitle(
-      SFMT("%1 %2", self.o.browseTitle, IIF(filterActive, "filtered", "all")))
+        SFMT("%1 %2", self.o.browseTitle, IIF(filterActive, "filtered", "all")))
   END IF
 END FUNCTION
 
 CONSTANT SHOW_ORDERS = "show_orders"
 
 PRIVATE FUNCTION (self TM_BrowseCust)
-  checkOrders(
-  d ui.Dialog, num LIKE customer.customer_num)
+    checkOrders(
+    d ui.Dialog, num LIKE customer.customer_num)
   VAR numOrders = count_orders(num)
   VAR active = numOrders > 0
   --DISPLAY "numOrders:", numOrders, ",active:", active
@@ -193,7 +193,7 @@ END FUNCTION
 PRIVATE FUNCTION (self TM_BrowseCust) getFilterForm() RETURNS STRING
   DEFINE frm STRING
   LET frm =
-    IIF(self.o.filterForm IS NOT NULL, self.o.filterForm, self.o.inputForm)
+      IIF(self.o.filterForm IS NOT NULL, self.o.filterForm, self.o.inputForm)
   RETURN frm
 END FUNCTION
 
@@ -205,12 +205,12 @@ PRIVATE FUNCTION (self TM_BrowseCust) getFilter() RETURNS STRING
     LET winId = utils.openDynamicWindow(filterForm)
     IF self.o.filterTitle IS NULL THEN
       LET self.o.filterTitle =
-        SFMT("%1: Input filter criteria", utils.getFormTitle())
+          SFMT("%1: Input filter criteria", utils.getFormTitle())
     END IF
   ELSE
     IF self.o.filterTitle IS NULL THEN
       LET self.o.filterTitle =
-        SFMT("%1: Input filter criteria", self.browseFormTextOrig)
+          SFMT("%1: Input filter criteria", self.browseFormTextOrig)
     END IF
   END IF
   CALL fgl_settitle(self.o.filterTitle)
@@ -234,15 +234,15 @@ END FUNCTION
 FUNCTION main()
   DEFINE arr T_customers
   DEFINE opts T_SingleTableDAOptions =
-    (browseForm: "customers",
-      inputForm: "customers_singlerow",
-      --filterForm: "customers_singlerow",
-      hasUpdate: TRUE,
-      hasAppend: TRUE,
-      hasDelete: TRUE,
-      hasFilter: TRUE,
-      filterInitially: FALSE,
-      addToolBar: TRUE)
+      (browseForm: "customers",
+          inputForm: "customers_singlerow",
+          --filterForm: "customers_singlerow",
+          hasUpdate: TRUE,
+          hasAppend: TRUE,
+          hasDelete: TRUE,
+          hasFilter: TRUE,
+          filterInitially: FALSE,
+          addToolBar: TRUE)
   CALL utils.dbconnect()
   CALL browseArray(opts, arr)
 END FUNCTION

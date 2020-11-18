@@ -24,7 +24,7 @@ END RECORD
 TYPE T_x RECORD
   sub RECORD
     customer_num
-      LIKE customer.customer_num ATTRIBUTE(json_name = "Customer Number"),
+        LIKE customer.customer_num ATTRIBUTE(json_name = "Customer Number"),
     fname LIKE customer.fname
   END RECORD,
   unrelated INT
@@ -41,16 +41,16 @@ MAIN
   --CALL getDialogFieldsFromTable("empty")
   RETURN
 
-  VAR cust T_customer = (fname:"Leo",lname:"Schubert")
-  CALL insertRecordIntoDB(recv: reflect.Value.valueOf(cust),"customer")
+  VAR cust T_customer = (fname: "Leo", lname: "Schubert")
+  CALL insertRecordIntoDB(recv: reflect.Value.valueOf(cust), "customer")
   DISPLAY util.JSON.stringify(cust)
 
   VAR r RECORD
     x T_customer
-  END RECORD = ( x:(fname:"Rene Schacht",lname:"Schacht") )
+  END RECORD = (x:(fname: "Rene Schacht", lname: "Schacht"))
   VAR names2 T_INT_DICT = ("x.customer_num": 0, "x.fname": 1, "x.lname": 2)
   CALL insertRecordIntoDBWithNames(
-    recv: reflect.Value.valueOf(r), names: names2, "customer", TRUE)
+      recv: reflect.Value.valueOf(r), names: names2, "customer", TRUE)
   DISPLAY util.JSON.stringify(r)
 
   CALL readIntoArrayByName(reflect.Value.valueOf(a), "select * from customer")
@@ -60,7 +60,7 @@ MAIN
   LET r.x.fname = "Willi"
   LET r.x.lname = "Winter"
   CALL updateRecordInDBWithNames(
-    recv: reflect.Value.valueOf(r), names2, "customer", TRUE)
+      recv: reflect.Value.valueOf(r), names2, "customer", TRUE)
   CALL readIntoArrayByName(reflect.Value.valueOf(a), "select * from customer")
   MYASSERT(a.getLength() > 0)
   DISPLAY util.JSON.stringify(a[a.getLength()])
@@ -70,14 +70,15 @@ MAIN
   MYASSERT(util.JSON.stringify(a).equals(util.JSON.stringify(a1)))
   --demonstrates an ARRAY with a RECORD LIKE definition as a sub record ...as we have customer_num twice
   --we need to read in by position
-  CALL readIntoArrayByPosition( reflect.Value.valueOf(b), "select * FROM customer,cust_ex")
+  CALL readIntoArrayByPosition(
+      reflect.Value.valueOf(b), "select * FROM customer,cust_ex")
   CALL fetch_customers_ex(b1)
   MYASSERT(util.JSON.stringify(b).equals(util.JSON.stringify(b1)))
   CALL fetch_customers_and_orders(customersAndOrders: c)
   CALL readIntoArray(
-    reflect.Value.valueOf(c1),
-    "SELECT UNIQUE * FROM customer,orders WHERE customer.customer_num = orders.customer_num",
-    TRUE)
+      reflect.Value.valueOf(c1),
+      "SELECT UNIQUE * FROM customer,orders WHERE customer.customer_num = orders.customer_num",
+      TRUE)
   --DISPLAY util.JSON.stringify(c[1])
   --DISPLAY util.JSON.stringify(c1[1])
   MYASSERT(util.JSON.stringify(c).equals(util.JSON.stringify(c1)))
@@ -109,7 +110,7 @@ FUNCTION fetch_customers_ex(customersX T_customersSub)
   DEFINE n INT
   CALL customersX.clear()
   DECLARE cu2 CURSOR FOR
-    SELECT * INTO customer.*, cust_ex.* FROM customer, cust_ex
+      SELECT * INTO customer.*, cust_ex.* FROM customer, cust_ex
   FOREACH cu2
     LET n = n + 1
     LET customersX[n].cust.* = customer.*
@@ -122,10 +123,10 @@ FUNCTION fetch_customers_and_orders(customersAndOrders T_customersAndOrders)
   DEFINE order RECORD LIKE orders.*
   DEFINE n INT
   DECLARE cu3 CURSOR FOR
-    SELECT UNIQUE *
-      INTO cust.*, order.*
-      FROM customer, orders
-      WHERE customer.customer_num = orders.customer_num
+      SELECT UNIQUE *
+          INTO cust.*, order.*
+          FROM customer, orders
+          WHERE customer.customer_num = orders.customer_num
   FOREACH cu3
     LET n = n + 1
     LET customersAndOrders[n].cust.* = cust.*
@@ -137,9 +138,9 @@ FUNCTION fetch_sparse(xarr T_xarr)
   DEFINE x T_x
   DEFINE n INT
   DECLARE cu4 CURSOR FOR
-    SELECT customer_num, fname
-      INTO x.sub.customer_num, x.sub.fname
-      FROM customer
+      SELECT customer_num, fname
+          INTO x.sub.customer_num, x.sub.fname
+          FROM customer
   FOREACH cu4
     LET n = n + 1
     LET xarr[n].sub.* = x.sub.*
@@ -154,26 +155,24 @@ END RECORD
 TYPE T_2idxDICT DICTIONARY OF T_2idx
 
 PRIVATE FUNCTION setName2Index(
-  name2Index T_2idxDICT, name STRING, idx INT, subIdx INT)
+    name2Index T_2idxDICT, name STRING, idx INT, subIdx INT)
   DEFINE tuple T_2idx = (idx: idx, subIdx: subIdx)
   MYASSERT(NOT name2Index.contains(name))
   LET name2Index[name] = tuple
 END FUNCTION
 
-FUNCTION readIntoArrayByName(
-  arr reflect.Value, sql STRING)
-  CALL readIntoArray(arr,sql,FALSE)
+FUNCTION readIntoArrayByName(arr reflect.Value, sql STRING)
+  CALL readIntoArray(arr, sql, FALSE)
 END FUNCTION
 
-FUNCTION readIntoArrayByPosition(
-  arr reflect.Value, sql STRING)
-  CALL readIntoArray(arr,sql,TRUE)
+FUNCTION readIntoArrayByPosition(arr reflect.Value, sql STRING)
+  CALL readIntoArray(arr, sql, TRUE)
 END FUNCTION
 
 --reads an sql query into the array and sets the members "by name"
 FUNCTION readIntoArray(
-  arr reflect.Value, sql STRING, byPosition BOOLEAN)
-  RETURNS()
+    arr reflect.Value, sql STRING, byPosition BOOLEAN)
+    RETURNS()
   DEFINE tarr, trec, tf, subtf reflect.Type
   DEFINE cnt, subcnt, fieldIndex, subIndex INT
   DEFINE recName, name STRING
@@ -218,7 +217,10 @@ FUNCTION readIntoArray(
 END FUNCTION
 
 FUNCTION assignResultsByName(
-  h base.SqlHandle, name2Index T_2idxDICT, recv reflect.Value, resultCount INT)
+    h base.SqlHandle,
+    name2Index T_2idxDICT,
+    recv reflect.Value,
+    resultCount INT)
   DEFINE tuple T_2idx
   DEFINE name, sqltype STRING
   DEFINE value reflect.Value
@@ -243,7 +245,7 @@ FUNCTION assignResultsByName(
     --type check
     IF NOT fv.getType().isAssignableFrom(value.getType()) THEN
       DISPLAY SFMT("field %1 is not assignable , has type:%",
-        name, fv.getType().toString())
+          name, fv.getType().toString())
       CONTINUE FOR
     END IF
     CALL fv.set(value)
@@ -281,11 +283,11 @@ FUNCTION assignResultsByPos(h base.SqlHandle, recv reflect.Value)
 END FUNCTION
 
 FUNCTION fillArrayWithQueryData(
-  arr reflect.Value,
-  name2Index T_2idxDICT,
-  sql STRING,
-  byPosition BOOLEAN,
-  numFields INT)
+    arr reflect.Value,
+    name2Index T_2idxDICT,
+    sql STRING,
+    byPosition BOOLEAN,
+    numFields INT)
   DEFINE h base.SqlHandle
   DEFINE cnt, mystatus INT
   DEFINE recv reflect.Value
@@ -312,48 +314,50 @@ END FUNCTION
 FUNCTION getDialogFieldsFromTable(tabname STRING) RETURNS T_fields
   DEFINE fields utils.T_fields
   VAR h = base.SqlHandle.create()
-  CALL h.prepare(sfmt("SELECT * FROM %1",tabname))
+  CALL h.prepare(SFMT("SELECT * FROM %1", tabname))
   CALL h.open()
   --surprisingly this works also for empty tables
   CALL h.fetch()
   VAR i INT
-  FOR i=1 TO h.getResultCount()
-    LET fields[i].name=h.getResultName(i)
-    LET fields[i].type=h.getResultType(i)
+  FOR i = 1 TO h.getResultCount()
+    LET fields[i].name = h.getResultName(i)
+    LET fields[i].type = h.getResultType(i)
   END FOR
   RETURN fields
 END FUNCTION
 
 FUNCTION readTableNameFromRecordDesc(trec reflect.Type) RETURNS STRING
-  RETURN readTableNameFromRecordDescInt(trec,TRUE)
+  RETURN readTableNameFromRecordDescInt(trec, TRUE)
 END FUNCTION
 
-FUNCTION readTableNameFromRecordDescInt(trec reflect.Type,topLevel BOOLEAN) RETURNS STRING
-  CONSTANT RLIKE="RECORD LIKE "
-  VAR rlen=RLIKE.getLength()
-  VAR desc=trec.toString()
-  VAR idx=desc.getIndexOf(str: RLIKE,startIndex: 1)
-  IF idx==1 THEN
-   VAR idx2=desc.getIndexOf(str:".*",rlen)
-   IF idx2>0 THEN
-     VAR tabname=desc.subString(rlen+1,idx2-1)
-     VAR idx3=tabname.getIndexOf(":",1)
-     --cut the db prefix
-     IF idx3>0 THEN
-       LET tabname=tabname.subString(idx3+1,tabname.getLength())
-     END IF
-     RETURN tabname
-   END IF
+FUNCTION readTableNameFromRecordDescInt(
+    trec reflect.Type, topLevel BOOLEAN)
+    RETURNS STRING
+  CONSTANT RLIKE = "RECORD LIKE "
+  VAR rlen = RLIKE.getLength()
+  VAR desc = trec.toString()
+  VAR idx = desc.getIndexOf(str: RLIKE, startIndex: 1)
+  IF idx == 1 THEN
+    VAR idx2 = desc.getIndexOf(str: ".*", rlen)
+    IF idx2 > 0 THEN
+      VAR tabname = desc.subString(rlen + 1, idx2 - 1)
+      VAR idx3 = tabname.getIndexOf(":", 1)
+      --cut the db prefix
+      IF idx3 > 0 THEN
+        LET tabname = tabname.subString(idx3 + 1, tabname.getLength())
+      END IF
+      RETURN tabname
+    END IF
   END IF
   IF NOT topLevel THEN --prevent further recursion
     RETURN NULL
   END IF
-  VAR cnt=trec.getFieldCount()
+  VAR cnt = trec.getFieldCount()
   VAR i INT
-  FOR i=1 TO cnt
-    VAR subt=trec.getFieldType(i)
-    IF subt.getKind()==C_RECORD THEN
-      VAR tab=readTableNameFromRecordDescInt(subt,FALSE)
+  FOR i = 1 TO cnt
+    VAR subt = trec.getFieldType(i)
+    IF subt.getKind() == C_RECORD THEN
+      VAR tab = readTableNameFromRecordDescInt(subt, FALSE)
       IF tab IS NOT NULL THEN
         RETURN tab
       END IF
@@ -386,7 +390,7 @@ FUNCTION setSqlParamVal(h base.SqlHandle, pos INT, val reflect.Value)
   VAR typeStr = val.getType().toString()
   IF typeStr == C_DATE THEN
     --surround a type problem:
-    --the SQL driver doesn't know the correct column type 
+    --the SQL driver doesn't know the correct column type
     --DATE parameters passed as STRING are not converted properly
     VAR d DATE
     LET d = val.toString()
@@ -404,12 +408,12 @@ END FUNCTION
 --we re read the data we INSERTed/UPDATEd previously to ensure the DB drivers
 --did work correct
 FUNCTION re_read_data(
-  recv reflect.Value,
-  names T_INT_DICT,
-  tabName STRING,
-  serial STRING,
-  serialVal reflect.Value,
-  qualified BOOLEAN)
+    recv reflect.Value,
+    names T_INT_DICT,
+    tabName STRING,
+    serial STRING,
+    serialVal reflect.Value,
+    qualified BOOLEAN)
   VAR keys = names.getKeys()
   VAR cols STRING
   VAR i INT
@@ -421,9 +425,9 @@ FUNCTION re_read_data(
   END FOR
   VAR h = base.SqlHandle.create()
   VAR sql
-    = SFMT("SELECT %1 FROM %2 WHERE %3=%4",
-      cols, tabName, utils.cutFieldPrefix(serial), serialVal.toString())
-  DISPLAY "sql:",sql
+      = SFMT("SELECT %1 FROM %2 WHERE %3=%4",
+          cols, tabName, utils.cutFieldPrefix(serial), serialVal.toString())
+  DISPLAY "sql:", sql
   CALL h.prepare(sql)
   CALL h.open()
   CALL h.fetch()
@@ -449,23 +453,23 @@ END FUNCTION
 --inserts a plain RECORD value into to the DB
 --for the specified table name
 --all RECORD members must be existing column names in the table
-FUNCTION insertRecordIntoDB(recv reflect.Value,tabName STRING)
+FUNCTION insertRecordIntoDB(recv reflect.Value, tabName STRING)
   DEFINE empty T_INT_DICT
-  CALL insertRecordIntoDBWithNames(recv,empty,tabName,FALSE)
+  CALL insertRecordIntoDBWithNames(recv, empty, tabName, FALSE)
 END FUNCTION
 
-PRIVATE FUNCTION fillNames(trec reflect.Type,names T_INT_DICT)
-  MYASSERT(trec.getKind()==C_RECORD)
-  VAR cnt=trec.getFieldCount()
+PRIVATE FUNCTION fillNames(trec reflect.Type, names T_INT_DICT)
+  MYASSERT(trec.getKind() == C_RECORD)
+  VAR cnt = trec.getFieldCount()
   VAR i INT
-  FOR i=1 TO cnt
+  FOR i = 1 TO cnt
     MYASSERT(NOT trec.getFieldType(i).getKind().equals(C_RECORD))
-    LET names[trec.getFieldName(i)]=i
+    LET names[trec.getFieldName(i)] = i
   END FOR
 END FUNCTION
 
 FUNCTION insertRecordIntoDBWithNames(
-  recv reflect.Value, names T_INT_DICT, tabName STRING, qualified BOOLEAN)
+    recv reflect.Value, names T_INT_DICT, tabName STRING, qualified BOOLEAN)
   DEFINE keys DYNAMIC ARRAY OF STRING
   DEFINE h base.SqlHandle
   DEFINE sql, key, cols, quest STRING
@@ -474,11 +478,11 @@ FUNCTION insertRecordIntoDBWithNames(
   DEFINE _names T_INT_DICT
   WHENEVER ERROR RAISE
   LET h = base.SqlHandle.create()
-  IF names.getLength()==0 THEN
+  IF names.getLength() == 0 THEN
     --no names passed, we assume a plain RECORD
-    CALL fillNames(recv.getType(),_names)
+    CALL fillNames(recv.getType(), _names)
   ELSE
-    LET _names=names
+    LET _names = names
   END IF
   LET keys = _names.getKeys()
   VAR serial = getSerial(keys, tabName)
@@ -515,25 +519,24 @@ END FUNCTION
 --writes a plain RECORD value with a SERIAL to the DB
 --for the specified table name
 --all RECORD members must be existing column names in the table
-FUNCTION updateRecordInDB(
-  recv reflect.Value, tabName STRING)
+FUNCTION updateRecordInDB(recv reflect.Value, tabName STRING)
   DEFINE empty T_INT_DICT
-  CALL updateRecordInDBWithNames(recv,empty,tabName,FALSE)
+  CALL updateRecordInDBWithNames(recv, empty, tabName, FALSE)
 END FUNCTION
 
 FUNCTION updateRecordInDBWithNames(
-  recv reflect.Value, names T_INT_DICT, tabName STRING, qualified BOOLEAN)
+    recv reflect.Value, names T_INT_DICT, tabName STRING, qualified BOOLEAN)
   DEFINE keys DYNAMIC ARRAY OF STRING
   DEFINE key_val STRING
   DEFINE i INT
   DEFINE _names T_INT_DICT
   WHENEVER ERROR RAISE
   VAR h = base.SqlHandle.create()
-  IF names.getLength()==0 THEN
+  IF names.getLength() == 0 THEN
     --no names passed, we assume a plain RECORD
-    CALL fillNames(recv.getType(),_names)
+    CALL fillNames(recv.getType(), _names)
   ELSE
-    LET _names=names
+    LET _names = names
   END IF
   LET keys = _names.getKeys()
   VAR serial = getSerial(keys, tabName)
@@ -546,8 +549,8 @@ FUNCTION updateRecordInDBWithNames(
     LET key_val = key_val, utils.cutFieldPrefix(keys[i]), " = ? "
   END FOR
   VAR sql
-    = SFMT("UPDATE %1 SET %2 WHERE %3=%4",
-      tabName, key_val, utils.cutFieldPrefix(serial), serialVal.toString())
+      = SFMT("UPDATE %1 SET %2 WHERE %3=%4",
+          tabName, key_val, utils.cutFieldPrefix(serial), serialVal.toString())
   DISPLAY "sql:", sql
   CALL h.prepare(sql)
   FOR i = 1 TO keys.getLength()
@@ -563,7 +566,7 @@ FUNCTION updateRecordInDBWithNames(
 END FUNCTION
 
 FUNCTION deleteRecordInDB(
-  recv reflect.Value, names T_INT_DICT, tabName STRING, qualified BOOLEAN)
+    recv reflect.Value, names T_INT_DICT, tabName STRING, qualified BOOLEAN)
   DEFINE keys DYNAMIC ARRAY OF STRING
   WHENEVER ERROR RAISE
   LET keys = names.getKeys()
@@ -572,8 +575,8 @@ FUNCTION deleteRecordInDB(
   VAR serialVal = getRecursiveFieldByName(recv, serial, qualified)
   VAR h = base.SqlHandle.create()
   VAR sql
-    = SFMT("DELETE FROM %1 WHERE %2=%3",
-      tabName, utils.cutFieldPrefix(serial), serialVal.toString())
+      = SFMT("DELETE FROM %1 WHERE %2=%3",
+          tabName, utils.cutFieldPrefix(serial), serialVal.toString())
   DISPLAY "sql:", sql
   CALL h.prepare(sql)
   CALL h.execute()

@@ -1,4 +1,4 @@
-#-- show orders in 2 modes: browse all orders 
+#-- show orders in 2 modes: browse all orders
 #-- or show the orders for a specific customer
 &include "myassert.inc"
 IMPORT reflect
@@ -30,7 +30,7 @@ END FUNCTION
 FUNCTION (self TM_orders) OnActionInDA(actionName STRING, row INT)
   --custom action always triggers here
   DISPLAY SFMT("ordersWithMethods OnActionInDA actionName:'%1',row:%2",
-    actionName, row)
+      actionName, row)
   IF row >= 1 AND row <= self.o_arr.getLength() THEN
     CASE actionName
       WHEN SHOW_CUSTOMER
@@ -63,13 +63,12 @@ END FUNCTION
 --} End TM_orders
 
 FUNCTION showOrders(
-  customer_num LIKE customer.customer_num,
-  fname LIKE customer.fname,
-  lname LIKE customer.lname)
+    customer_num LIKE customer.customer_num,
+    fname LIKE customer.fname,
+    lname LIKE customer.lname)
   DEFINE mo TM_orders
   DEFINE opts T_SingleTableDAOptions =
-    (browseForm: "orders", browseRecord: "scr",
-     addToolBar: TRUE)
+      (browseForm: "orders", browseRecord: "scr", addToolBar: TRUE)
   --we pass the reflect value of the TM_orders variable
   --the browse array function calls various methods of the
   --TM_orders type while being active
@@ -86,10 +85,10 @@ FUNCTION showOrders(
     LET mo.browseOrders = TRUE
   ELSE
     LET opts.sqlAll =
-      SFMT("SELECT * FROM ORDERS WHERE customer_num = %1", customer_num)
+        SFMT("SELECT * FROM ORDERS WHERE customer_num = %1", customer_num)
     LET mo.custName = SFMT("%1 %2", fname CLIPPED, lname CLIPPED)
     LET opts.browseTitle =
-      SFMT("Orders of Customer %1: %2", customer_num, mo.custName)
+        SFMT("Orders of Customer %1: %2", customer_num, mo.custName)
     LET mo.browseOrders = FALSE
   END IF
   CALL sDAdyn.browseArray(opts)

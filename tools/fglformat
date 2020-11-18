@@ -1,0 +1,1 @@
+for i in *.4gl; do fglcomp --format --fo-inplace $i; done

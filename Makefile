@@ -32,7 +32,7 @@ aui_const.4gl:
 
 sDAdyn.42m: utils.42m sql2array.42m
 
-customers.42m: sDAdyn.42m utils.42m
+customers.42m: sDAdyn.42m utils.42m customers.42f customers_singlerow.42f
 
 customers: customers.42m
 	fglrun $@
@@ -68,16 +68,22 @@ test: stores.sch $(MODULES)
 sql2array: stores.sch sql2array.42m utils.42m
 	fglrun sql2array
 
+
 stores.sch: utils.42m
 	stores/mkstores
 
 utils.42m: aui_const.4gl
 
+format: 
+	tools/fglformat
+	make -C tools format
+	make -C stores format
+
 clean::
 	$(MAKE) -C stores clean
 	$(MAKE) -C tools clean
 	$(RM) -f stores.dbs stores.sch
-	$(RM) -f *.42? cols_customer.4gl aui_const.4gl *.fgldeb
+	$(RM) -f *.42? *.4gl~ cols_customer.4gl aui_const.4gl *.fgldeb
 
 echo:
 	@echo "ALLMODULES:$(ALLMODULES)"

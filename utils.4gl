@@ -64,11 +64,11 @@ PUBLIC TYPE T_SingleTableDAOptions RECORD
   addClickableImages BOOLEAN,
   addToolBar BOOLEAN,
   qualifiedNames
-      BOOLEAN --if set field names are referenced by "tableName.columnName",
-    --and hence also the names in the ARRAY
-    --this means RECORDs *must* have sub RECORD names *matching* the table names/aliases
-    --, multiRowSelection BOOLEAN
-    ,
+          BOOLEAN --if set field names are referenced by "tableName.columnName",
+      --and hence also the names in the ARRAY
+      --this means RECORDs *must* have sub RECORD names *matching* the table names/aliases
+      --, multiRowSelection BOOLEAN
+      ,
   tabname STRING --optional tablename
 END RECORD
 
@@ -96,7 +96,7 @@ FUNCTION myerr(errstr STRING)
   CALL ch.openFile("<stderr>", "w")
   IF mShowStack THEN
     CALL ch.writeLine(
-      SFMT("ERROR:%1,stack:\n%2", errstr, base.Application.getStackTrace()))
+        SFMT("ERROR:%1,stack:\n%2", errstr, base.Application.getStackTrace()))
   ELSE
     CALL ch.writeLine(SFMT("ERROR:%1", errstr))
   END IF
@@ -109,13 +109,13 @@ FUNCTION dbconnect()
   DEFINE driver STRING = "sqlite"
   DEFINE db STRING
   IF (base.Application.getResourceEntry(
-    "dbi.database.stores.source")) IS NOT NULL THEN
+      "dbi.database.stores.source")) IS NOT NULL THEN
     DATABASE stores
   ELSE
     LET db =
-      IIF(NOT driver.equals("default"),
-        SFMT("%1+driver='%2'", dbName, driver),
-        dbName)
+        IIF(NOT driver.equals("default"),
+            SFMT("%1+driver='%2'", dbName, driver),
+            dbName)
     DATABASE db
   END IF
 END FUNCTION
@@ -124,13 +124,13 @@ FUNCTION printRVInt(title STRING, val reflect.Value, indent STRING)
   DEFINE i INT
   VAR t = val.getType()
   DISPLAY indent,
-    title,
-    " ",
-    t.toString(),
-    " ",
-    t.getKind(),
-    "=",
-    val.toString()
+      title,
+      " ",
+      t.toString(),
+      " ",
+      t.getKind(),
+      "=",
+      val.toString()
   LET indent = indent, "  "
   CASE
     WHEN t.getKind() == C_RECORD
@@ -152,8 +152,8 @@ FUNCTION printRV(title STRING, val reflect.Value)
 END FUNCTION
 
 FUNCTION getArrayRecField(
-  arrVal reflect.Value, idx INT, member STRING)
-  RETURNS reflect.Value
+    arrVal reflect.Value, idx INT, member STRING)
+    RETURNS reflect.Value
   DEFINE t, trec reflect.Type
   DEFINE el, field reflect.Value
   LET t = arrVal.getType()
@@ -164,15 +164,15 @@ FUNCTION getArrayRecField(
   LET el = arrVal.getArrayElement(idx)
   IF (field := el.getFieldByName(member)) IS NULL THEN
     CALL myerrAndStackTrace(
-      SFMT("Can't find RECORD member '%1' in array", member))
+        SFMT("Can't find RECORD member '%1' in array", member))
   END IF
   RETURN field
 END FUNCTION
 
 --function to get arbitray member values for an array index ( ARRAY OF RECORD )
 FUNCTION getArrayRecEl(
-  arrVal reflect.Value, idx INT, member STRING)
-  RETURNS STRING
+    arrVal reflect.Value, idx INT, member STRING)
+    RETURNS STRING
   DEFINE field reflect.Value
   LET field = getArrayRecField(arrVal, idx, member)
   RETURN field.toString()
@@ -180,8 +180,8 @@ END FUNCTION
 
 --function to set arbitray member values for an array index ( ARRAY OF RECORD )
 FUNCTION setArrayRecEl(
-  arrVal reflect.Value, idx INT, member STRING, newVal STRING)
-  RETURNS()
+    arrVal reflect.Value, idx INT, member STRING, newVal STRING)
+    RETURNS()
   VAR field = getArrayRecField(arrVal, idx, member)
   VAR newValR = reflect.Value.valueOf(newVal)
   MYASSERT(field.getType().isAssignableFrom(newValR.getType()))
@@ -190,15 +190,15 @@ END FUNCTION
 
 --sample about how one could return a specific member type (INT)
 FUNCTION getArrayRecElINT(
-  arrVal reflect.Value, idx INT, member STRING)
-  RETURNS INT
+    arrVal reflect.Value, idx INT, member STRING)
+    RETURNS INT
   DEFINE x INT
   VAR field = getArrayRecField(arrVal, idx, member)
   --we explicitly check for the type to avoid nonsense NULL return values
   IF NOT field.getType().toString().equals(C_INTEGER) THEN
     CALL myerrAndStackTrace(
-      SFMT("member '%1' doesn't have type INTEGER, actual: %2",
-        member, field.getType().toString()))
+        SFMT("member '%1' doesn't have type INTEGER, actual: %2",
+            member, field.getType().toString()))
   END IF
   LET x = field.toString()
   RETURN x
@@ -206,15 +206,15 @@ END FUNCTION
 
 --sample about how one could return a specific member type (DATE)
 FUNCTION getArrayRecElDATE(
-  arrVal reflect.Value, idx INT, member STRING)
-  RETURNS INT
+    arrVal reflect.Value, idx INT, member STRING)
+    RETURNS INT
   DEFINE x DATE
   VAR field = getArrayRecField(arrVal, idx, member)
   --we explicitly check for the type to avoid nonsense NULL return values
   IF NOT field.getType().toString().equals(C_DATE) THEN
     CALL myerrAndStackTrace(
-      SFMT("member '%1' doesn't have type DATE, actual: %2",
-        member, field.getType().toString()))
+        SFMT("member '%1' doesn't have type DATE, actual: %2",
+            member, field.getType().toString()))
   END IF
   LET x = field.toString()
   RETURN x
@@ -267,7 +267,7 @@ FUNCTION copyRecordByName(src reflect.Value, dest reflect.Value)
     --both src and dest have the *same* RECORD type:
     --you should rather use a direct RECORD assignment
     CALL myerrAndStackTrace(
-      "RECORD types match: use a direct RECORD assignment instead(performance)")
+        "RECORD types match: use a direct RECORD assignment instead(performance)")
   END IF
   --first iterate thru the source record
   VAR cnt = tsrc.getFieldCount()
@@ -308,8 +308,8 @@ FUNCTION copyArrayOfRecord(src reflect.Value, dest reflect.Value)
   MYASSERT(trecdst.getKind() == C_RECORD)
   IF trecdst.toString() == trecsrc.toString() THEN
     CALL myerrAndStackTrace(
-      SFMT("RECORD types are equal (%1): use the build in copyTo() method of ARRAY instead of this function (performance)",
-        trecdst.toString()))
+        SFMT("RECORD types are equal (%1): use the build in copyTo() method of ARRAY instead of this function (performance)",
+            trecdst.toString()))
   END IF
   MYASSERT(trecsrc.getFieldCount() == trecdst.getFieldCount())
   VAR numFields = trecsrc.getFieldCount()
@@ -367,12 +367,12 @@ FUNCTION copyArrayOfRecordByName(src reflect.Value, dest reflect.Value)
   MYASSERT(trecdst.getKind() == C_RECORD)
   IF trecdst.toString() == trecsrc.toString() THEN
     CALL myerrAndStackTrace(
-      SFMT("RECORD types are equal (%1): use the build in copyTo() method of ARRAY instead of this function (performance)",
-        trecdst.toString()))
+        SFMT("RECORD types are equal (%1): use the build in copyTo() method of ARRAY instead of this function (performance)",
+            trecdst.toString()))
   END IF
   IF trecdst.isAssignableFrom(trecsrc) THEN
     CALL myerrAndStackTrace(
-      "RECORD types match: use the copyArrayOfRecord() function instead of this function (performance)")
+        "RECORD types match: use the copyArrayOfRecord() function instead of this function (performance)")
     RETURN
   END IF
   VAR cnt = trecsrc.getFieldCount()
@@ -418,8 +418,8 @@ END FUNCTION
 
 --checks in depth 1
 FUNCTION getRecursiveFieldByName(
-  recv reflect.Value, name STRING, qualified BOOLEAN)
-  RETURNS reflect.Value
+    recv reflect.Value, name STRING, qualified BOOLEAN)
+    RETURNS reflect.Value
   DEFINE idx INT
   DEFINE subname STRING
   VAR fv = recv.getFieldByName(name)
@@ -455,8 +455,8 @@ FUNCTION getRecursiveFieldByName(
 END FUNCTION
 
 FUNCTION getRecursiveTypeByName(
-  trec reflect.Type, name STRING, qualified BOOLEAN)
-  RETURNS reflect.Type
+    trec reflect.Type, name STRING, qualified BOOLEAN)
+    RETURNS reflect.Type
   DEFINE subname STRING
   MYASSERT(trec.getKind() == C_RECORD)
   VAR ft = trec.getFieldTypeByName(name)
@@ -512,8 +512,8 @@ END FUNCTION
 
 FUNCTION getFieldName(field om.DomNode, qualified BOOLEAN) RETURNS STRING
   RETURN IIF(qualified,
-    field.getAttribute(A_name),
-    field.getAttribute(A_colName))
+      field.getAttribute(A_name),
+      field.getAttribute(A_colName))
 END FUNCTION
 
 FUNCTION scanTable(t om.DomNode, qualified BOOLEAN) RETURNS T_STRING_DICT
@@ -522,7 +522,7 @@ FUNCTION scanTable(t om.DomNode, qualified BOOLEAN) RETURNS T_STRING_DICT
   DEFINE dict T_STRING_DICT
   FOR loop = 1 TO 2
     VAR l2
-      = t.selectByTagName(IIF(loop == 1, TAG_TableColumn, TAG_PhantomColumn))
+        = t.selectByTagName(IIF(loop == 1, TAG_TableColumn, TAG_PhantomColumn))
     FOR i = 1 TO l2.getLength()
       VAR tc = l2.item(i)
       LET name = getFieldName(tc, qualified)
@@ -541,13 +541,13 @@ FUNCTION getCurrentForm() RETURNS om.DomNode
 END FUNCTION
 
 FUNCTION getTableByScreenRecord(
-  formRoot om.DomNode, screenRec STRING)
-  RETURNS om.DomNode
+    formRoot om.DomNode, screenRec STRING)
+    RETURNS om.DomNode
   MYASSERT(formRoot IS NOT NULL)
   MYASSERT(formRoot.getTagName() == TAG_Form)
   VAR l
-    = formRoot.selectByPath(
-      SFMT('//' || TAG_Table || '[@' || A_tabName || '="%1"]', screenRec))
+      = formRoot.selectByPath(
+          SFMT('//' || TAG_Table || '[@' || A_tabName || '="%1"]', screenRec))
   VAR len = l.getLength()
   IF len > 0 THEN
     MYASSERT(len) --there can be only one table with a screenRec
@@ -563,15 +563,15 @@ END FUNCTION
 --so we need eventually to open the .42f file and scan a bit the DOM
 --if qualified is set, the returned names are "tableName.columnName"
 FUNCTION readNamesFromScreenRecord(
-  screenRec STRING, f42f STRING, qualified BOOLEAN)
-  RETURNS T_STRING_DICT
+    screenRec STRING, f42f STRING, qualified BOOLEAN)
+    RETURNS T_STRING_DICT
   DEFINE doc om.DomDocument
   DEFINE root om.DomNode
   DEFINE win ui.Window
   DEFINE frmO ui.Form
   MYASSERT(screenRec IS NOT NULL)
   IF (win := ui.Window.getCurrent()) IS NULL
-    OR (frmO := win.getForm()) IS NULL THEN
+      OR (frmO := win.getForm()) IS NULL THEN
     MYASSERT((doc := om.DomDocument.createFromXmlFile(f42f)) IS NOT NULL)
     LET root = doc.getDocumentElement()
   ELSE
@@ -591,8 +591,8 @@ FUNCTION readNamesFromScreenRecord(
 END FUNCTION
 
 FUNCTION getAllRealInputtableFieldNames(
-  f42f STRING, qualified BOOLEAN)
-  RETURNS T_STRING_ARR
+    f42f STRING, qualified BOOLEAN)
+    RETURNS T_STRING_ARR
   DEFINE doc om.DomDocument
   DEFINE namesdict T_STRING_DICT
   MYASSERT((doc := om.DomDocument.createFromXmlFile(f42f)) IS NOT NULL)
@@ -604,7 +604,7 @@ FUNCTION getAllRealInputtableFieldNames(
 END FUNCTION
 
 FUNCTION scanRecordView(
-  root om.DomNode, screenRec STRING, f42f STRING, qualified BOOLEAN)
+    root om.DomNode, screenRec STRING, f42f STRING, qualified BOOLEAN)
   DEFINE dict T_STRING_DICT
   DEFINE fieldIdDict T_NODE_DICT
   DEFINE i INT
@@ -612,11 +612,12 @@ FUNCTION scanRecordView(
   LET fieldIdDict = getFieldIds(root)
   --DISPLAY "fieldIdDict:", util.JSON.stringify(fieldIdDict)
   VAR l
-    = root.selectByPath(
-      SFMT('//' || TAG_RecordView || '[@' || A_tabName || '="%1"]', screenRec))
+      = root.selectByPath(
+          SFMT('//' || TAG_RecordView || '[@' || A_tabName || '="%1"]',
+              screenRec))
   IF l.getLength() == 0 THEN
     CALL myerrAndStackTrace(
-      SFMT("Can't find screen record '%1' in '%2'", screenRec, f42f))
+        SFMT("Can't find screen record '%1' in '%2'", screenRec, f42f))
   END IF
   VAR rv = l.item(1)
   LET l = rv.selectByTagName(TAG_Link)
@@ -637,7 +638,10 @@ FUNCTION scanRecordView(
 END FUNCTION
 
 PRIVATE FUNCTION addFieldNamesToDict(
-  fieldsDict T_STRING_DICT, root om.DomNode, tagName STRING, qualified BOOLEAN)
+    fieldsDict T_STRING_DICT,
+    root om.DomNode,
+    tagName STRING,
+    qualified BOOLEAN)
   DEFINE name STRING
   DEFINE i INT
   VAR l = root.selectByTagName(tagName)
@@ -652,7 +656,7 @@ END FUNCTION
 TYPE T_NODE_DICT DICTIONARY OF om.DomNode
 
 PRIVATE FUNCTION addFullNamesByFieldId(
-  dict T_NODE_DICT, root om.DomNode, tagName STRING)
+    dict T_NODE_DICT, root om.DomNode, tagName STRING)
   DEFINE i INT
   VAR l = root.selectByTagName(tagName)
   VAR len = l.getLength()
@@ -673,8 +677,8 @@ END FUNCTION
 
 --retrieves all inputtable fields in the current form
 FUNCTION getInputColumnNamesAndTableNames(
-  qualified BOOLEAN)
-  RETURNS T_STRING_DICT
+    qualified BOOLEAN)
+    RETURNS T_STRING_DICT
   DEFINE namesdict T_STRING_DICT
   DEFINE root om.DomNode
   LET root = ui.Window.getCurrent().getForm().getNode()
@@ -873,7 +877,7 @@ FUNCTION closeDynamicWindow(winId STRING)
       CLOSE WINDOW dynw10
     OTHERWISE
       CALL myerrAndStackTrace(
-        SFMT("Wrong winId:%1,must be between 0 and 10", winId))
+          SFMT("Wrong winId:%1,must be between 0 and 10", winId))
   END CASE
   LET mWindows[winId] = FALSE
 END FUNCTION
@@ -885,8 +889,8 @@ TYPE T_schemaVal RECORD
 END RECORD
 
 FUNCTION getSchemaVal(
-  tabname STRING, colname STRING, dt INT, len INT)
-  RETURNS T_schemaVal
+    tabname STRING, colname STRING, dt INT, len INT)
+    RETURNS T_schemaVal
   DEFINE schVal T_schemaVal
   --typeStr *should* match the type strings used in reflection
   --TODO need a test
@@ -943,7 +947,7 @@ FUNCTION getSchemaVal(
       LET schVal.typeStr = "VARCHAR" --TODO len
     OTHERWISE
       DISPLAY SFMT("unhandled type:%1 for table:%2 column:%3",
-        dt MOD 256, tabname, colname)
+          dt MOD 256, tabname, colname)
   END CASE
   LET schVal.isNULL = dt / 256 == 1
   RETURN schVal
@@ -1002,13 +1006,13 @@ END FUNCTION
 FUNCTION filterNoRecords(filterActive BOOLEAN) RETURNS BOOLEAN
   DEFINE ans STRING
   CALL fgl_winButton(
-    title: "No records found",
-    "Please enter other criteria or show all data.",
-    ans: "Input other filter criteria",
-    items: "Input other filter criteria|Show all data",
-    icon: "attention",
-    dang: 0)
-    RETURNING ans
+      title: "No records found",
+      "Please enter other criteria or show all data.",
+      ans: "Input other filter criteria",
+      items: "Input other filter criteria|Show all data",
+      icon: "attention",
+      dang: 0)
+      RETURNING ans
   IF NOT ans.equals("Input other filter criteria") THEN
     LET filterActive = FALSE
   END IF
@@ -1018,18 +1022,18 @@ END FUNCTION
 FUNCTION reallyDeleteRecords() RETURNS BOOLEAN
   VAR ans STRING
   LET ans =
-    fgldialog.fgl_winQuestion(
-      title: "Attention",
-      message: "Do you really want to delete this RECORD?",
-      ans: "yes",
-      items: "yes|no",
-      icon: "quest",
-      dang: 0)
+      fgldialog.fgl_winQuestion(
+          title: "Attention",
+          message: "Do you really want to delete this RECORD?",
+          ans: "yes",
+          items: "yes|no",
+          icon: "quest",
+          dang: 0)
   RETURN ans == "yes"
 END FUNCTION
 
 PUBLIC FUNCTION checkCommonDA_Actions(
-  d ui.Dialog, options T_SingleTableDAOptions)
+    d ui.Dialog, options T_SingleTableDAOptions)
   CALL d.setActionText("cancel", "Exit")
   CALL d.setActionActive("update", options.hasUpdate)
   CALL d.setActionHidden("update", NOT options.hasUpdate)

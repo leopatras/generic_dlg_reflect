@@ -80,11 +80,14 @@ FUNCTION fetch_customers(customers T_customers)
 END FUNCTION
 
 FUNCTION fetch_orders_by_cust(
-  orders T_orders, customer_num LIKE customer.customer_num)
+    orders T_orders, customer_num LIKE customer.customer_num)
   DEFINE order T_order
   DEFINE n INT
   DECLARE cu2 CURSOR FOR
-    SELECT * INTO order.* FROM orders WHERE customer_num = @orders.customer_num
+      SELECT *
+          INTO order.*
+          FROM orders
+          WHERE customer_num = @orders.customer_num
   FOREACH cu2
     LET n = n + 1
     LET orders[n].o.* = order.*
@@ -95,7 +98,7 @@ FUNCTION fetch_items_by_order(items T_items, order_num LIKE orders.order_num)
   DEFINE item T_item
   DEFINE n INT
   DECLARE cu3 CURSOR FOR
-    SELECT * INTO item.* FROM items WHERE order_num = @items.order_num
+      SELECT * INTO item.* FROM items WHERE order_num = @items.order_num
   FOREACH cu3
     LET n = n + 1
     LET items[n].* = item.*
