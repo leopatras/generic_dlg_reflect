@@ -1,5 +1,6 @@
 # generic_dlg_reflect
-how one could use dynamic dialogs, reflect and RECORD methods to build generic dialogs in Genero
+how one could use dynamic dialogs, reflect and RECORD methods to build generic dialogs in Genero.
+
 A detailed discussion about the techniques used here can be found at
 https://4js.com/files/documents/wwdc20/2_Tuesday/2_Tuesday_Leo.pdf.
 
