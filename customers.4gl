@@ -9,11 +9,13 @@ SCHEMA stores
 --vs the 'T_' prefix : this type doesn't have Methods
 --{ Begin TM_customer
 
+PUBLIC TYPE T_Customer RECORD LIKE customer.*
+
 PUBLIC TYPE TM_customer RECORD --TODO: add IMPLEMENTS
-  cust RECORD LIKE customer.*,
+  cust T_Customer,
   dlg ui.Dialog --custom save of dlg
 END RECORD
-TYPE TValidateFunc FUNCTION (self TM_customer INOUT) RETURNS STRING
+TYPE TValidateFunc FUNCTION (cust T_Customer INOUT) RETURNS STRING
 DEFINE _validateCallbacks DICTIONARY OF TValidateFunc
 
 CONSTANT SHOW_ORDERS = "show_orders"
@@ -118,14 +120,14 @@ FUNCTION (self TM_customer)
   --callback table for demonstration purposes
   LET func = _validateCallbacks[fieldName]
   IF func IS NOT NULL THEN
-    RETURN func(self)
+    RETURN func(self.cust)
   END IF
   RETURN NULL --NULL means: no error
 END FUNCTION
 
-FUNCTION customer_zipcode_valid(self TM_customer INOUT) RETURNS STRING
-  IF length(self.cust.zipcode) <> 5 THEN
-    DISPLAY "zipcode:'", self.cust.zipcode, "'"
+FUNCTION customer_zipcode_valid(cust T_Customer INOUT) RETURNS STRING
+  IF length(cust.zipcode) <> 5 THEN
+    DISPLAY "zipcode:'", cust.zipcode, "'"
     RETURN "Zipcode must have 5 digits"
   END IF
   RETURN NULL
