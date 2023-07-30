@@ -8,20 +8,26 @@ SCHEMA stores
 --the 'TM_' prefix indicates: this type has Methods
 --vs the 'T_' prefix : this type doesn't have Methods
 --{ Begin TM_customer
+
 PUBLIC TYPE TM_customer RECORD --TODO: add IMPLEMENTS
   cust RECORD LIKE customer.*,
-  flagNotUsed BOOLEAN --for ex:usage in dialog
+  dlg ui.Dialog --custom save of dlg
 END RECORD
+TYPE TValidateFunc FUNCTION (self TM_customer INOUT) RETURNS STRING
+DEFINE _validateCallbacks DICTIONARY OF TValidateFunc
 
 CONSTANT SHOW_ORDERS = "show_orders"
 --method called by the browseArray function
 --to initialize the DISPLAY ARRAY with a row bound action
 FUNCTION (self TM_customer) InitDA(sdi I_SingleTableDA, d ui.Dialog) RETURNS()
-  UNUSED(self)
   DISPLAY "init customer DA called"
   CALL sdi.addOnActionRowBound(d, SHOW_ORDERS)
   CALL d.setActionText(SHOW_ORDERS, "Show Orders")
+  LET self.dlg = d
+  LET _validateCallbacks[cols_customer.C_zipcode] =
+      FUNCTION customer_zipcode_valid
 END FUNCTION
+
 
 --method called by the browseArray function
 --whenever an ON ACTION is triggered
@@ -105,15 +111,24 @@ FUNCTION (self TM_customer)
     AfterField(
     d ui.Dialog, fieldName STRING, oldValue STRING)
     RETURNS STRING
-  UNUSED(self)
+  DEFINE func TValidateFunc
   DISPLAY SFMT("AFTER FIELD field:%1 value:%2 oldValue:%3",
       fieldName, d.getFieldValue(fieldName), oldValue)
-  CASE
-    WHEN fieldName == cols_customer.C_zipcode AND length(self.cust.zipcode) <> 5
-      DISPLAY fieldName, ":'", self.cust.zipcode, "'"
-      RETURN "Zipcode must have 5 digits"
-  END CASE
+  --if we have many fields a big CASE may be not appropriate, just use a
+  --callback table for demonstration purposes
+  LET func = _validateCallbacks[fieldName]
+  IF func IS NOT NULL THEN
+    RETURN func(self)
+  END IF
   RETURN NULL --NULL means: no error
+END FUNCTION
+
+FUNCTION customer_zipcode_valid(self TM_customer INOUT) RETURNS STRING
+  IF length(self.cust.zipcode) <> 5 THEN
+    DISPLAY "zipcode:'", self.cust.zipcode, "'"
+    RETURN "Zipcode must have 5 digits"
+  END IF
+  RETURN NULL
 END FUNCTION
 
 --} End TM_customer
@@ -128,11 +143,11 @@ FUNCTION (self TM_customer) checkInterfaces()
   DEFINE iOAI I_OnActionInINPUT
   MYASSERT(FALSE)
   LET iBR = self --the compiler checks if TM_customer implements I_BeforeRow
-  LET iAF = self
+  LET iAF = self --the compiler checks if TM_customer implements I_AfterField
   LET iDA = self --the compiler checks if TM_customers implements I_InitDA
-  LET iII = self
-  LET iOAD = self
-  LET iOAI = self
+  LET iII = self --the compiler checks if TM_customers implements I_InitINPUT
+  LET iOAD = self --the compiler checks if TM_customers implements I_OnActionInDA
+  LET iOAI = self --the compiler checks if TM_customers implements I_OnActionInINPUT
 END FUNCTION
 
 FUNCTION main()
