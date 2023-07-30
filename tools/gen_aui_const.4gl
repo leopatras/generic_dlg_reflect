@@ -2,7 +2,6 @@
 --in a filed called "aui_const.4gl" to enable auto completion
 &include "../myassert.inc"
 IMPORT os
-IMPORT util
 
 TYPE T_STRING_ARR DYNAMIC ARRAY OF STRING
 

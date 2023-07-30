@@ -5,7 +5,7 @@
 IMPORT reflect
 IMPORT util
 IMPORT FGL utils
-IMPORT FGL fgldbutl
+--IMPORT FGL fgldbutl
 
 SCHEMA stores
 

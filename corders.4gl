@@ -2,13 +2,9 @@
 #-- for the orders table.
 #-- its basically a copy/paste/replace of the ccustomers module
 &include "myassert.inc"
-IMPORT util
 IMPORT FGL utils
-IMPORT FGL fgldialog
-IMPORT FGL ccustomers
 IMPORT FGL utils_customer
 IMPORT FGL citems
-IMPORT FGL cols_customer -- columns of customer
 SCHEMA stores
 PUBLIC TYPE T_order RECORD LIKE orders.*
 TYPE T_orders DYNAMIC ARRAY OF T_order

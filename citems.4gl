@@ -2,10 +2,7 @@
 #-- for the items table.
 #-- its basically a copy/paste/replace of the corders module
 &include "myassert.inc"
-IMPORT util
 IMPORT FGL utils
-IMPORT FGL fgldialog
-IMPORT FGL utils_customer
 SCHEMA stores
 PUBLIC TYPE T_item RECORD
   it RECORD LIKE items.*,

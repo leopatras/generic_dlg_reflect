@@ -2,7 +2,6 @@
 #-- defined for the RECORD members
 &include "myassert.inc"
 IMPORT reflect
-IMPORT util
 IMPORT FGL utils
 IMPORT FGL sDAdyn
 SCHEMA stores

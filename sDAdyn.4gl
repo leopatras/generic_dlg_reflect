@@ -3,7 +3,6 @@ SHORT CIRCUIT
 &include "myassert.inc"
 IMPORT reflect
 IMPORT util
-IMPORT os
 IMPORT FGL utils
 IMPORT FGL fgldialog
 IMPORT FGL sql2array
@@ -699,7 +698,7 @@ END FUNCTION
 
 PRIVATE FUNCTION (self TM_SingleTableDA)
     describeFieldsForINPUT(
-    trec reflect.type, fields T_fields)
+    trec reflect.Type, fields T_fields)
     RETURNS T_INT_DICT
   DEFINE columnNames T_STRING_DICT
   LET columnNames =
@@ -711,7 +710,7 @@ END FUNCTION
 
 PRIVATE FUNCTION (self TM_SingleTableDA)
     describeFieldsForRecord(
-    rec STRING, frm STRING, trec reflect.type, fields T_fields)
+    rec STRING, frm STRING, trec reflect.Type, fields T_fields)
     RETURNS T_INT_DICT
   DEFINE f42f STRING
   DEFINE dict T_STRING_DICT

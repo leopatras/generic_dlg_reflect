@@ -1,10 +1,7 @@
 &include "myassert.inc"
 IMPORT reflect
-IMPORT util
 IMPORT FGL utils
 IMPORT FGL sDAdyn
-IMPORT FGL orders
-IMPORT FGL fgldialog
 SCHEMA stores
 --show case RECORDs with duplicate column names
 TYPE TM_custex RECORD

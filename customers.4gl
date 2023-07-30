@@ -1,6 +1,5 @@
 &include "myassert.inc"
 IMPORT reflect
-IMPORT util
 IMPORT FGL utils
 IMPORT FGL sDAdyn
 IMPORT FGL orders

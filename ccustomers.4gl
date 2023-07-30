@@ -3,12 +3,8 @@
 #-- The variable part constraints (AFTER FIELD, ON ACTION etc) are the same
 #-- as in customers.4gl, but we need more code
 &include "myassert.inc"
-IMPORT util
 IMPORT FGL utils
-IMPORT FGL fgldialog
 IMPORT FGL corders
-IMPORT FGL utils_customer
-IMPORT FGL cols_customer -- columns of customer
 SCHEMA stores
 PUBLIC TYPE T_customer RECORD LIKE customer.*
 TYPE T_customers DYNAMIC ARRAY OF T_customer

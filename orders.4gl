@@ -2,11 +2,9 @@
 #-- or show the orders for a specific customer
 &include "myassert.inc"
 IMPORT reflect
-IMPORT util
 IMPORT FGL utils
 IMPORT FGL utils_customer
 IMPORT FGL sDAdyn
-IMPORT FGL customers
 IMPORT FGL items
 SCHEMA stores
 
