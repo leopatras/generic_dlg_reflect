@@ -1,6 +1,7 @@
 #-- show orders in 2 modes: browse all orders
 #-- or show the orders for a specific customer
 &include "myassert.inc"
+&include "implements_interface.inc"
 IMPORT reflect
 IMPORT FGL utils
 IMPORT FGL utils_customer
@@ -14,6 +15,11 @@ TYPE TM_orders RECORD --TODO: add IMPLEMENTS
   browseOrders BOOLEAN,
   custName STRING
 END RECORD
+
+--dummy funcs to enable a compiler checks until IMPLEMENTS is there
+IMPLEMENTS_INTERFACE(TM_orders, I_InitDA) --the compiler checks if TM_orders implements I_InitDA
+IMPLEMENTS_INTERFACE(TM_orders, I_OnActionInDA) --the compiler checks if TM_orders implements I_OnActionInDA
+IMPLEMENTS_INTERFACE(TM_orders, I_DeleteRow) --the compiler checks if TM_orders implements I_DeleteRow
 
 CONSTANT SHOW_CUSTOMER = "show_customer"
 CONSTANT SHOW_ITEMS = "show_items"
@@ -48,16 +54,6 @@ FUNCTION (self TM_orders) DeleteRow(d ui.Dialog, row INT)
   WHENEVER ERROR STOP
 END FUNCTION
 
-FUNCTION (self TM_orders) checkInterfaces()
-  --surrounds the missing IMPLEMENTS with a compiler check
-  DEFINE iDA I_InitDA
-  DEFINE iOA I_OnActionInDA
-  DEFINE iDR I_DeleteRow
-  MYASSERT(FALSE)
-  LET iDA = self --the compiler checks if TM_orders implements I_InitDA
-  LET iOA = self --the compiler checks if TM_orders implements I_OnActionInDA
-  LET iDR = self --the compiler checks if TM_orders implements I_DeleteRow
-END FUNCTION
 --} End TM_orders
 
 FUNCTION showOrders(

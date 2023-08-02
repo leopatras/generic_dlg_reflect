@@ -501,6 +501,7 @@ FUNCTION (self TM_SingleTableDA)
     CALL arrVal.deleteArrayElement(newRow)
   ELSE
     CALL self.setClickableImages(d)
+    MESSAGE "appended new record"
   END IF
   CALL self.checkRowBoundActions(d, arrVal)
   CALL self.setBrowseTitle(filterActive)

@@ -1,4 +1,5 @@
 &include "myassert.inc"
+&include "implements_interface.inc"
 IMPORT reflect
 IMPORT FGL utils
 IMPORT FGL sDAdyn
@@ -15,6 +16,15 @@ PUBLIC TYPE TM_customer RECORD --TODO: add IMPLEMENTS
   cust T_customer,
   dlg ui.Dialog --custom save of dlg
 END RECORD
+
+--dummy funcs to enable compiler checks until IMPLEMENTS is there
+IMPLEMENTS_INTERFACE(TM_customer, I_BeforeRow) --the compiler checks if TM_customer implements I_BeforeRow
+IMPLEMENTS_INTERFACE(TM_customer, I_InitDA) --the compiler checks if TM_customer implements I_InitDA
+IMPLEMENTS_INTERFACE(TM_customer, I_InitINPUT) --the compiler checks if TM_customer implements I_InitINPUT
+IMPLEMENTS_INTERFACE(TM_customer, I_AfterField)  --the compiler checks if TM_customer implements I_AfterField
+IMPLEMENTS_INTERFACE(TM_customer, I_OnActionInDA) --the compiler checks if TM_customer implements I_OnActionInDA
+IMPLEMENTS_INTERFACE(TM_customer, I_OnActionInINPUT) --the compiler checks if TM_customer implements I_OnActionInINPUT
+
 TYPE TValidateFunc FUNCTION (cust T_customer INOUT) RETURNS STRING
 DEFINE _validateCallbacks DICTIONARY OF TValidateFunc
 
@@ -134,23 +144,6 @@ FUNCTION customer_zipcode_valid(cust T_customer INOUT) RETURNS STRING
 END FUNCTION
 
 --} End TM_customer
-
-FUNCTION (self TM_customer) checkInterfaces()
-  --dummy func to enable a compiler check until IMPLEMENTS is there
-  DEFINE iBR I_BeforeRow
-  DEFINE iDA I_InitDA
-  DEFINE iII I_InitINPUT
-  DEFINE iAF I_AfterField
-  DEFINE iOAD I_OnActionInDA
-  DEFINE iOAI I_OnActionInINPUT
-  MYASSERT(FALSE)
-  LET iBR = self --the compiler checks if TM_customer implements I_BeforeRow
-  LET iAF = self --the compiler checks if TM_customer implements I_AfterField
-  LET iDA = self --the compiler checks if TM_customers implements I_InitDA
-  LET iII = self --the compiler checks if TM_customers implements I_InitINPUT
-  LET iOAD = self --the compiler checks if TM_customers implements I_OnActionInDA
-  LET iOAI = self --the compiler checks if TM_customers implements I_OnActionInINPUT
-END FUNCTION
 
 FUNCTION main()
   DEFINE arr DYNAMIC ARRAY OF TM_customer

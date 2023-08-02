@@ -1,12 +1,15 @@
 #-- we have the DeleteRow/InsertOrUpdate methods
 #-- defined for the RECORD members
 &include "myassert.inc"
+&include "implements_interface.inc"
 IMPORT reflect
 IMPORT FGL utils
 IMPORT FGL sDAdyn
 SCHEMA stores
 TYPE TM_Item RECORD LIKE items.*
 
+
+IMPLEMENTS_INTERFACE(TM_Item, I_DeleteRow) --the compiler checks if TM_Item implements I_DeleteRow
 FUNCTION (self TM_Item) DeleteRow(d ui.Dialog, row INT)
   UNUSED(d)
   UNUSED(row)
@@ -17,6 +20,7 @@ FUNCTION (self TM_Item) DeleteRow(d ui.Dialog, row INT)
   WHENEVER ERROR STOP
 END FUNCTION
 
+IMPLEMENTS_INTERFACE(TM_Item, I_InsertOrUpdate) --the compiler checks if TM_Item implements I_InsertOrUpdate
 FUNCTION (self TM_Item) InsertOrUpdate(update BOOLEAN)
   WHENEVER ERROR RAISE
   MYASSERT(update == TRUE)
@@ -47,14 +51,6 @@ FUNCTION showItems(order_num LIKE orders.order_num, custName STRING)
         SFMT("Items of Order %1,Customer: %2", order_num, custName)
   END IF
   CALL sDAdyn.browseArray(opts)
-END FUNCTION
-
-FUNCTION (self TM_Item) checkInterfaces()
-  RETURN
-  VAR iDR I_DeleteRow
-  LET iDR = self
-  VAR iIU I_InsertOrUpdate
-  LET iIU = self
 END FUNCTION
 
 FUNCTION main()
